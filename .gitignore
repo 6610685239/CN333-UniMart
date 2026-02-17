@@ -1,0 +1,13 @@
+# Visual Studio
+.vs/
+*/.vs/
+
+# Node.js
+node_modules/
+backend/.env
+
+# Flutter
+frontend/build/
+.dart_tool/
+.idea/
+*.iml
