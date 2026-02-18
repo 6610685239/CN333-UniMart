@@ -141,40 +141,69 @@ class _AddProductScreenState extends State<AddProductScreen> {
   // }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedCategoryId == null) return;
 
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse('${ApiService.baseUrl}/products'),
-    );
+    // ตรวจสอบฟอร์ม (ชื่อ, ราคา, รายละเอียด, สถานที่)
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-    request.fields['title'] = _titleCtrl.text;
-    request.fields['description'] = _descCtrl.text;
-    request.fields['price'] = _priceCtrl.text;
-    request.fields['condition'] = _selectedCondition;
-    request.fields['categoryId'] = _selectedCategoryId!;
-    request.fields['ownerId'] = widget.userId.toString();
-    request.fields['location'] = _locationCtrl.text;
-
-    for (var file in _selectedImages) {
-      request.files.add(await http.MultipartFile.fromPath('images', file.path));
+    // ตรวจสอบรูปภาพ
+    if (_selectedImages.isEmpty) {
+      return;
+    }
+    
+    // ตรวจสอบหมวดหมู่ (สำคัญมาก!)
+    if (_selectedCategoryId == null) {
+      return;
     }
 
     try {
-      var response = await request.send();
-      if (response.statusCode == 200) {
-        if (!mounted) return;
-        Navigator.pop(context, true);
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("ลงสินค้าไม่สำเร็จ")));
+          var request = http.MultipartRequest('POST', Uri.parse('${ApiService.baseUrl}/products'));
+
+          request.fields['title'] = _titleCtrl.text;
+          request.fields['description'] = _descCtrl.text;
+          request.fields['price'] = _priceCtrl.text;
+          request.fields['condition'] = _selectedCondition;
+          request.fields['categoryId'] = _selectedCategoryId!;
+          request.fields['location'] = _locationCtrl.text;
+          
+          request.fields['ownerId'] = widget.userId.toString();
+
+          for (var file in _selectedImages) {
+            request.files.add(await http.MultipartFile.fromPath('images', file.path));
+          }
+
+          var streamedResponse = await request.send();
+          var response = await http.Response.fromStream(streamedResponse);
+
+          if (response.statusCode == 201 || response.statusCode == 200) {
+            if (mounted) {
+              Navigator.pop(context, true);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ลงขายสำเร็จ!")));
+            }
+          } else {
+            throw Exception("Server Error: ${response.body}");
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+          }
+        } 
       }
-    } catch (e) {
-      print('Error: $e');
-    }
-  }
+
+    // try {
+    //   var response = await request.send();
+    //   if (response.statusCode == 200) {
+    //     if (!mounted) return;
+    //     Navigator.pop(context, true);
+    //   } else {
+    //     ScaffoldMessenger.of(
+    //       context,
+    //     ).showSnackBar(const SnackBar(content: Text("ลงสินค้าไม่สำเร็จ")));
+    //   }
+    // } catch (e) {
+    //   print('Error: $e');
+    // }
 
   @override
   Widget build(BuildContext context) {

@@ -8,7 +8,8 @@ class Product {
   final List<String> images;
   final String categoryName;
   final String location;
-  final int ownerId; 
+  final int ownerId;
+  final String ownerName;
 
   Product({
     required this.id,
@@ -20,7 +21,8 @@ class Product {
     required this.images,
     required this.categoryName,
     required this.location,
-    required this.ownerId, 
+    required this.ownerId,
+    required this.ownerName,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -32,9 +34,14 @@ class Product {
       status: json['status'] ?? 'AVAILABLE',
       condition: json['condition'] ?? 'มือหนึ่ง',
       images: json['images'] != null ? List<String>.from(json['images']) : [],
-      categoryName: json['category'] != null ? json['category']['name'] : 'ไม่ระบุ',
+      categoryName: json['category'] != null
+          ? json['category']['name']
+          : 'ไม่ระบุ',
       location: json['location'] ?? 'ไม่ระบุ',
-      ownerId: json['ownerId'] ?? 0, 
+      ownerId: json['ownerId'] ?? 0,
+      ownerName: json['owner'] != null
+          ? json['owner']['name']
+          : 'ผู้ขายไม่ระบุชื่อ',
     );
   }
 }

@@ -65,7 +65,7 @@ app.post('/products', upload.array('images', 5), async (req, res) => {
 // 3. ดึงสินค้าของฉัน (หน้าร้านค้า) ⭐ แก้ไขแล้ว ⭐
 app.get('/my-products/:userId', async (req, res) => {
   try {
-    const { userId } = req.params; 
+    const { userId } = req.params;
 
     const products = await prisma.product.findMany({
       where: {
@@ -144,6 +144,33 @@ app.patch('/products/:id', upload.array('images', 5), async (req, res) => {
       data: updateData,
     });
     res.json(updatedProduct);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. ดึงสินค้าทั้งหมด (สำหรับหน้า Home)
+// ดึงเฉพาะที่สถานะเป็น 'AVAILABLE' และเรียงจากใหม่สุด
+app.get('/products', async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: {
+        status: 'AVAILABLE' // ⭐ โชว์เฉพาะของที่ยังไม่ขาย
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        category: true,
+        owner: { // ⭐ สำคัญมาก: ต้องดึงชื่อคนขายมาโชว์ด้วย
+          select: {
+            name: true,
+            profileImage: true
+          }
+        }
+      }
+    });
+    res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

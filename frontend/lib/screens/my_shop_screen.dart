@@ -15,7 +15,7 @@ class _MyShopScreenState extends State<MyShopScreen> {
   final ApiService api = ApiService();
   List<Product> products = [];
   bool isLoading = true;
-  final int currentUserId = 1;
+  final int currentUserId = 2;
 
   @override
   void initState() {
