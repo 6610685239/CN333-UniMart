@@ -229,12 +229,7 @@ class _MyShopScreenState extends State<MyShopScreen> {
                                           fontSize: 16,
                                           color: Colors.black87,
                                         ),
-                                      ),
-                                      const Icon(
-                                        Icons.favorite_border,
-                                        size: 20,
-                                        color: Colors.grey,
-                                      ),
+                                      ),              
                                     ],
                                   ),
                                 ],

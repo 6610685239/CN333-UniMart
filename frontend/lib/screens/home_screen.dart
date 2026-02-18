@@ -28,7 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final allProducts = await api.getProducts();
       setState(() {
         // ⭐ กรอง: เอาเฉพาะของที่ไม่ใช่ของฉัน (ownerId != currentUserId)
-        products = allProducts.where((p) => p.ownerId != widget.currentUserId).toList();
+        products =
+            allProducts.where((p) => p.ownerId != widget.currentUserId).toList();
         isLoading = false;
       });
     } catch (e) {
@@ -40,14 +41,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100], // พื้นหลังสีเทาอ่อน
       appBar: AppBar(
-        title: const Text("ตลาดสินค้า", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text("ตลาดสินค้า",
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(icon: const Icon(Icons.search, color: Colors.black), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.notifications_none, color: Colors.black), onPressed: () {}),
+          IconButton(
+              icon: const Icon(Icons.search, color: Colors.black),
+              onPressed: () {}),
+          IconButton(
+              icon: const Icon(Icons.notifications_none, color: Colors.black),
+              onPressed: () {}),
         ],
       ),
       body: isLoading
@@ -57,12 +63,13 @@ class _HomeScreenState extends State<HomeScreen> {
               child: products.isEmpty
                   ? const Center(child: Text("ยังไม่มีสินค้าจากคนอื่น"))
                   : GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
-                        childAspectRatio: 0.65, // ปรับความสูงการ์ด
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.60, // ✅ ปรับสัดส่วนให้เท่าหน้า MyShop (0.60)
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
                       ),
                       itemCount: products.length,
                       itemBuilder: (context, index) {
@@ -75,6 +82,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProductCard(Product product) {
+    // เตรียม URL รูปภาพ
+    String? firstImage = product.images.isNotEmpty
+        ? '${ApiService.baseUrl}/uploads/${product.images[0]}'
+        : null;
+
     return GestureDetector(
       onTap: () async {
         await Navigator.push(
@@ -86,73 +98,116 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         );
-        _fetchProducts(); // กลับมาแล้วโหลดใหม่ (เผื่อซื้อไปแล้ว)
+        _fetchProducts(); // กลับมาแล้วโหลดใหม่
       },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.4), // ✅ ใช้เงาสีเทาแบบ MyShop
+              spreadRadius: 2,
+              blurRadius: 5,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. รูปภาพ
+            // 1. ส่วนรูปภาพ (Image)
             Expanded(
+              flex: 4,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: product.images.isNotEmpty
+                child: firstImage != null
                     ? Image.network(
-                        '${ApiService.baseUrl}/uploads/${product.images[0]}',
-                        fit: BoxFit.cover,
+                        firstImage,
                         width: double.infinity,
-                        errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (ctx, err, stack) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported),
+                        ),
                       )
-                    : Container(color: Colors.grey[200], child: const Icon(Icons.image, color: Colors.grey)),
+                    : Container(
+                        color: Colors.grey[200],
+                        width: double.infinity,
+                        child: const Icon(Icons.image, color: Colors.grey, size: 50),
+                      ),
+                // ❌ ลบ Stack และ Positioned ที่แสดงป้าย AVAILABLE ออกแล้วตามคำขอ
               ),
             ),
-            
-            // 2. ข้อมูลสินค้า
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "฿ ${product.price}",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green),
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // 3. ชื่อคนขาย & สถานที่
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 8, 
-                        backgroundColor: Colors.grey, 
-                        child: Icon(Icons.person, size: 12, color: Colors.white)
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          product.ownerName, // ชื่อคนขาย
+
+            // 2. ส่วนข้อมูล (Info) - เหมือน MyShop เป๊ะๆ
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // หมวดหมู่
+                        Text(
+                          product.categoryName,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                          ),
+                          maxLines: 1,
+                        ),
+                        const SizedBox(height: 2),
+                        // ชื่อสินค้า
+                        Text(
+                          product.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(height: 4),
+                        // รายละเอียด (ตัดคำ)
+                        Text(
+                          product.description,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+
+                    // ราคา และ หัวใจ
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "฿ ${product.price}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.favorite_border,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
