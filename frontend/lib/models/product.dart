@@ -7,6 +7,7 @@ class Product {
   final String condition;
   final List<String> images;
   final String categoryName; // รับมาเฉพาะชื่อหมวดหมู่ก็ได้เพื่อนแสดงผล
+  final String location;
 
   Product({
     required this.id,
@@ -17,6 +18,7 @@ class Product {
     required this.condition,
     required this.images,
     required this.categoryName,
+    required this.location,
   });
 
   // Factory: แปลงจาก JSON (Map) เป็น Object
@@ -32,6 +34,7 @@ class Product {
       images: json['images'] != null ? List<String>.from(json['images']) : [],
       // ดึงชื่อหมวดหมู่จาก object category ที่ซ้อนอยู่
       categoryName: json['category'] != null ? json['category']['name'] : 'ไม่ระบุ',
+      location: json['location'] ?? 'ไม่ระบุ',
     );
   }
 }

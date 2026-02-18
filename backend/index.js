@@ -52,6 +52,7 @@ app.post('/products', upload.array('images', 5), async (req, res) => {
         description,
         price: parseFloat(price),
         condition,
+        location: location || 'ไม่ระบุ',
         categoryId: parseInt(categoryId),
         ownerId: parseInt(ownerId),
         images: imageFilenames, // Prisma schema ใหม่รับเป็น String[] (Array) ได้เลย
@@ -120,6 +121,7 @@ app.patch('/products/:id', upload.array('images', 5), async (req, res) => {
     if (condition) updateData.condition = condition;
     if (categoryId) updateData.categoryId = parseInt(categoryId);
     if (status) updateData.status = status; // ค่าที่เป็นไปได้: AVAILABLE, RESERVED, SOLD
+    if (location) product.location = location;
 
     // หมายเหตุ: ในตัวอย่างนี้ยังไม่ทำระบบแก้รูปภาพ (เพราะซับซ้อน) ให้แก้ข้อความก่อน
 

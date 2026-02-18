@@ -19,6 +19,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
 
   List<File> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
@@ -39,7 +40,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _fetchCategories();
   }
 
-Future<File?> _cropImage(XFile imageFile) async {
+  Future<File?> _cropImage(XFile imageFile) async {
     CroppedFile? croppedFile = await ImageCropper().cropImage(
       sourcePath: imageFile.path,
       // กำหนดขนาดสูงสุด
@@ -154,6 +155,7 @@ Future<File?> _cropImage(XFile imageFile) async {
     request.fields['condition'] = _selectedCondition;
     request.fields['categoryId'] = _selectedCategoryId!;
     request.fields['ownerId'] = widget.userId.toString();
+    request.fields['location'] = _locationCtrl.text;
 
     for (var file in _selectedImages) {
       request.files.add(await http.MultipartFile.fromPath('images', file.path));
@@ -252,6 +254,18 @@ Future<File?> _cropImage(XFile imageFile) async {
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _locationCtrl,
+                decoration: const InputDecoration(
+                  labelText: "สถานที่นัดรับ / ตำแหน่งสินค้า",
+                  prefixIcon: Icon(Icons.location_on), // ใส่ไอคอนหมุดสวยๆ
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) =>
+                    v!.isEmpty ? 'ระบุสถานที่' : null, // บังคับกรอก
               ),
 
               DropdownButtonFormField<String>(

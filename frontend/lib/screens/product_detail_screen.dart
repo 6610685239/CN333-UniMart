@@ -39,6 +39,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           condition: _product.condition,
           images: _product.images,
           categoryName: _product.categoryName,
+          location: _product.location,
         );
       });
       ScaffoldMessenger.of(
@@ -241,6 +242,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
+
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 20,
+                      ), // ไอคอนหมุดสีแดง
+                      const SizedBox(width: 4),
+                      Text(
+                        _product.location,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
                   // ชื่อสินค้า
                   Text(

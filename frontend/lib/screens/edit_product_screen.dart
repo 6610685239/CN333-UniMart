@@ -19,6 +19,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   late TextEditingController _descCtrl;
   late TextEditingController _priceCtrl;
   late String _selectedCondition;
+  late TextEditingController _locationCtrl;
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     _descCtrl = TextEditingController(text: widget.product.description);
     _priceCtrl = TextEditingController(text: widget.product.price.toString());
     _selectedCondition = widget.product.condition;
+    _locationCtrl = TextEditingController(text: widget.product.location);
   }
 
   Future<void> _updateProduct() async {
@@ -43,6 +45,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           "description": _descCtrl.text,
           "price": _priceCtrl.text,
           "condition": _selectedCondition,
+          "location": _locationCtrl.text,
         }),
       );
 
