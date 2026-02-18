@@ -16,9 +16,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: Colors.white,
-        fontFamily: 'Prompt', // (ถ้าคุณใช้ฟอนต์ไทย)
+        fontFamily: 'NotoSansThai', 
       ),
-      // ⭐ เปลี่ยนตรงนี้ครับ ⭐
       home: const MainScreen(), 
     );
   }

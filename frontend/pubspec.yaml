@@ -37,6 +37,7 @@ dependencies:
   http: ^1.6.0
   image_picker: ^1.2.1
   image_cropper: ^11.0.0
+  dotted_border: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +60,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  fonts:
+    - family: NotoSansThai
+      fonts:
+        - asset: assets/fonts/NotoSansThai-VariableFont_wdth,wght.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:
