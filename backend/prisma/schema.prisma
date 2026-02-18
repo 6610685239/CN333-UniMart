@@ -33,6 +33,7 @@ model Product {
   price       Float
   images      String[]  // เก็บรูปเป็น Array (เผื่อมีหลายรูป) [รองรับใน Postgres]
   condition   String    // สภาพสินค้า (มือหนึ่ง, มือสอง 90%)
+  location    String @default("ไม่ระบุ")
   
   // สถานะสินค้า (ใช้ Enum)
   status      ProductStatus @default(AVAILABLE)

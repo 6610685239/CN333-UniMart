@@ -14,7 +14,7 @@ app.use('/uploads', express.static('uploads'));
 
 // ตรวจสอบว่ามีโฟลเดอร์ uploads ไหม ถ้าไม่มีให้สร้าง
 if (!fs.existsSync('./uploads')) {
-    fs.mkdirSync('./uploads');
+  fs.mkdirSync('./uploads');
 }
 
 // Config Multer
@@ -26,7 +26,7 @@ const upload = multer({ storage: storage });
 
 // --- API ---
 
-// 1. ดึงรายการหมวดหมู่ (ให้ App เอาไปทำ Dropdown)
+// 1. ดึงรายการหมวดหมู่
 app.get('/categories', async (req, res) => {
   try {
     const categories = await prisma.category.findMany();
@@ -36,14 +36,10 @@ app.get('/categories', async (req, res) => {
   }
 });
 
-// 2. โพสต์ขายของ (รองรับหลายรูป)
-// upload.array('images', 5) แปลว่ารับรูปชื่อ field 'images' ได้สูงสุด 5 รูป
+// 2. โพสต์ขายของ
 app.post('/products', upload.array('images', 5), async (req, res) => {
   try {
-    // ข้อมูลจาก Form จะมาเป็น String ทั้งหมด ต้องแปลง type ก่อน
-    const { title, description, price, categoryId, condition, ownerId } = req.body;
-    
-    // ดึงชื่อไฟล์ทั้งหมดที่อัปโหลดมา
+    const { title, description, price, categoryId, condition, ownerId, location } = req.body;
     const imageFilenames = req.files ? req.files.map(file => file.filename) : [];
 
     const newProduct = await prisma.product.create({
@@ -55,7 +51,7 @@ app.post('/products', upload.array('images', 5), async (req, res) => {
         location: location || 'ไม่ระบุ',
         categoryId: parseInt(categoryId),
         ownerId: parseInt(ownerId),
-        images: imageFilenames, // Prisma schema ใหม่รับเป็น String[] (Array) ได้เลย
+        images: imageFilenames,
         status: 'AVAILABLE'
       },
     });
@@ -66,26 +62,47 @@ app.post('/products', upload.array('images', 5), async (req, res) => {
   }
 });
 
-// 3. ดึงสินค้าของฉัน (แก้ให้รองรับ images array)
+// 3. ดึงสินค้าของฉัน (หน้าร้านค้า) ⭐ แก้ไขแล้ว ⭐
 app.get('/my-products/:userId', async (req, res) => {
   try {
+    const { userId } = req.params; 
+
     const products = await prisma.product.findMany({
-      where: { ownerId: parseInt(req.params.userId) },
-      include: { category: true }, // ดึงชื่อหมวดหมู่มาด้วย
-      orderBy: { createdAt: 'desc' }
+      where: {
+        ownerId: parseInt(userId)
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        category: true,
+        owner: {
+          select: {
+            name: true, // ✅ ใช้ name ตาม Schema
+          }
+        }
+      }
     });
     res.json(products);
   } catch (error) {
+    console.error(error); // เพิ่ม log ให้เห็น error ชัดๆ
     res.status(500).json({ error: error.message });
   }
 });
 
-// 4. ดึงรายละเอียดสินค้า 1 ชิ้น (Get Single Product)
+// 4. ดึงรายละเอียดสินค้า 1 ชิ้น
 app.get('/products/:id', async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
       where: { id: parseInt(req.params.id) },
-      include: { category: true, owner: true }, // ดึงข้อมูลหมวดหมู่และคนขายมาด้วย
+      include: {
+        category: true,
+        owner: {
+          select: {
+            name: true // ✅ แก้จาก username เป็น name ให้ถูกต้อง
+          }
+        }
+      },
     });
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json(product);
@@ -94,7 +111,7 @@ app.get('/products/:id', async (req, res) => {
   }
 });
 
-// 5. ลบสินค้า (Delete Product)
+// 5. ลบสินค้า
 app.delete('/products/:id', async (req, res) => {
   try {
     await prisma.product.delete({
@@ -106,24 +123,21 @@ app.delete('/products/:id', async (req, res) => {
   }
 });
 
-// 6. แก้ไขข้อมูลสินค้า (Update Product)
-// รองรับทั้งแก้ไขเนื้อหา และเปลี่ยน Status
+// 6. แก้ไขข้อมูลสินค้า
 app.patch('/products/:id', upload.array('images', 5), async (req, res) => {
   const { id } = req.params;
-  const { title, description, price, condition, categoryId, status } = req.body;
+  // ✅ เพิ่ม location ในการรับค่า
+  const { title, description, price, condition, categoryId, status, location } = req.body;
 
   try {
-    // เตรียมข้อมูลที่จะอัปเดต (เช็คว่าส่งอะไรมาบ้าง)
     const updateData = {};
     if (title) updateData.title = title;
     if (description) updateData.description = description;
     if (price) updateData.price = parseFloat(price);
     if (condition) updateData.condition = condition;
     if (categoryId) updateData.categoryId = parseInt(categoryId);
-    if (status) updateData.status = status; // ค่าที่เป็นไปได้: AVAILABLE, RESERVED, SOLD
-    if (location) product.location = location;
-
-    // หมายเหตุ: ในตัวอย่างนี้ยังไม่ทำระบบแก้รูปภาพ (เพราะซับซ้อน) ให้แก้ข้อความก่อน
+    if (status) updateData.status = status;
+    if (location) updateData.location = location; // ✅ แก้ไขให้ถูกต้อง
 
     const updatedProduct = await prisma.product.update({
       where: { id: parseInt(id) },
@@ -134,4 +148,5 @@ app.patch('/products/:id', upload.array('images', 5), async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 app.listen(3000, () => console.log('Server running on port 3000'));
