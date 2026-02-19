@@ -58,12 +58,19 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (action == 'LOGIN_SUCCESS') {
         // Login Success
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login Successful!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Login Successful!'),
+            backgroundColor: Colors.green,
+          ),
         );
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(
+              currentUserId: result['userId'], 
+            ),
+          ),
         );
       }
     } else {
@@ -89,7 +96,6 @@ class _LoginScreenState extends State<LoginScreen> {
           height: size.height,
           child: Stack(
             children: [
-
               // Main Content
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 30.0),
@@ -216,7 +222,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 25),
-
                   ],
                 ),
               ),
