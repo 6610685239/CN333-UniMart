@@ -10,6 +10,8 @@ class Product {
   final String location;
   final int ownerId;
   final String ownerName;
+  final String type;
+  final double rentPrice;
 
   Product({
     required this.id,
@@ -23,6 +25,8 @@ class Product {
     required this.location,
     required this.ownerId,
     required this.ownerName,
+    this.type = 'SALE',
+    this.rentPrice = 0.0,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -42,6 +46,8 @@ class Product {
       ownerName: json['owner'] != null
           ? json['owner']['name']
           : 'ผู้ขายไม่ระบุชื่อ',
+      type: json['type'] ?? 'SALE',
+      rentPrice: (json['rentPrice'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

@@ -18,6 +18,7 @@ class AddProductScreen extends StatefulWidget {
 class _AddProductScreenState extends State<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  String _selectedType = 'SALE';
 
   // Controllers
   final _titleCtrl = TextEditingController();
@@ -104,7 +105,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
       request.fields['title'] = _titleCtrl.text;
       request.fields['description'] = _descCtrl.text;
-      request.fields['price'] = _priceCtrl.text;
+      request.fields['type'] = _selectedType;
+      if (_selectedType == 'SALE') {
+        request.fields['price'] = _priceCtrl.text;
+        // ไม่ต้องส่ง rentPrice
+      } else {
+        request.fields['price'] = '0'; // ถ้าเป็นของเช่า ให้ราคาขายหลักเป็น 0
+        request.fields['rentPrice'] =
+            _priceCtrl.text; // เอาตัวเลขไปใส่ช่องราคาเช่าแทน
+      }
+      // request.fields['price'] = _priceCtrl.text;
       request.fields['condition'] = _selectedCondition;
       request.fields['categoryId'] = _selectedCategoryId!;
       request.fields['location'] = _locationCtrl.text;
@@ -313,6 +323,43 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     _buildImagePickerBox(),
                     const SizedBox(height: 30),
 
+                    _buildFieldContainer(
+                      label: "Listing Option",
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: const Text(
+                                "Sell",
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              value: 'SALE',
+                              groupValue: _selectedType,
+                              activeColor: Colors.black,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: (val) =>
+                                  setState(() => _selectedType = val!),
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: const Text(
+                                "Rent",
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              value: 'RENT',
+                              groupValue: _selectedType,
+                              activeColor: Colors.black,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: (val) =>
+                                  setState(() => _selectedType = val!),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
                     // ชื่อสินค้า
                     _buildFieldContainer(
                       label: "Title",
@@ -321,7 +368,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           hintText: 'e.g. iPhone 17 Pro Max',
-                          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                          hintStyle: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
                         ),
                         validator: (v) =>
                             v!.isEmpty ? 'กรุณากรอกชื่อสินค้า' : null,
@@ -337,8 +387,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         maxLines: 5,
                         decoration: const InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'Details about the product, e.g. color, size, defects, reason for selling, etc.',
-                          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                          hintText:
+                              'Details about the product, e.g. color, size, defects, reason for selling, etc.',
+                          hintStyle: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
                         ),
                         validator: (v) =>
                             v!.isEmpty ? 'กรุณากรอกรายละเอียด' : null,
@@ -346,22 +400,47 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     const SizedBox(height: 20),
 
+                    // // ราคา
+                    // _buildFieldContainer(
+                    //   label: "Price",
+                    //   child: TextFormField(
+                    //     controller: _priceCtrl,
+                    //     keyboardType: TextInputType.number,
+                    //     decoration: const InputDecoration(
+                    //       border: InputBorder.none,
+                    //       hintText: 'Add your price in Baht',
+                    //       hintStyle: TextStyle(
+                    //         color: Colors.grey,
+                    //         fontSize: 14,
+                    //       ),
+                    //     ),
+                    //     validator: (v) => v!.isEmpty ? 'กรุณากรอกราคา' : null,
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 20),
                     // ราคา
                     _buildFieldContainer(
-                      label: "Price",
+                      // ⭐ ถ้าเลือก RENT ให้เขียนว่า "ราคาเช่าต่อวัน", ถ้าไม่ใช่ เขียน "ราคาขาย"
+                      label: _selectedType == 'RENT'
+                          ? "Rent Price (Baht/day)"
+                          : "Selling Price (Baht)",
                       child: TextFormField(
                         controller: _priceCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'Add your price in Baht',
-                          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-
+                          // ⭐ เปลี่ยน hintText ให้สอดคล้องกัน
+                          hintText: _selectedType == 'RENT'
+                              ? 'e.g. 50'
+                              : 'e.g. 15900',
+                          hintStyle: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
                         ),
                         validator: (v) => v!.isEmpty ? 'กรุณากรอกราคา' : null,
                       ),
                     ),
-                    const SizedBox(height: 20),
 
                     // สถานที่
                     _buildFieldContainer(
@@ -371,7 +450,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           hintText: 'e.g. SC3, Gym 7, Dormitory',
-                          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                          hintStyle: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
                           icon: Icon(
                             Icons.location_on_outlined,
                             color: Colors.grey,
@@ -422,7 +504,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     : DropdownButtonHideUnderline(
                                         child: DropdownButtonFormField<String>(
                                           value: _selectedCategoryId,
-                                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black87,
+                                          ),
                                           decoration: const InputDecoration(
                                             border: InputBorder.none,
                                           ),
@@ -436,7 +521,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                               ) {
                                                 return DropdownMenuItem<String>(
                                                   value: item['id'].toString(),
-                                                  child: Text(item['name'], style: const TextStyle(fontSize: 14)),
+                                                  child: Text(
+                                                    item['name'],
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
                                                 );
                                               })
                                               .toList(),
@@ -477,7 +567,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButtonFormField<String>(
                                     value: _selectedCondition,
-                                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black87,
+                                    ),
                                     decoration: const InputDecoration(
                                       border: InputBorder.none,
                                     ),
@@ -494,7 +587,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                         ].map((String val) {
                                           return DropdownMenuItem(
                                             value: val,
-                                            child: Text(val, style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                                            child: Text(
+                                              val,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
                                           );
                                         }).toList(),
                                     onChanged: (val) => setState(

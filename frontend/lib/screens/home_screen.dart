@@ -81,11 +81,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductCard(Product product) {
-    // เตรียม URL รูปภาพ
+Widget _buildProductCard(Product product) {
     String? firstImage = product.images.isNotEmpty
         ? '${ApiService.baseUrl}/uploads/${product.images[0]}'
         : null;
+
+    // ⭐ เช็คว่าเป็นของเช่าหรือไม่
+    bool isRent = product.type == 'RENT';
 
     return GestureDetector(
       onTap: () async {
@@ -98,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         );
-        _fetchProducts(); // กลับมาแล้วโหลดใหม่
+        _fetchProducts(); 
       },
       child: Container(
         decoration: BoxDecoration(
@@ -106,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.4), // ✅ ใช้เงาสีเทาแบบ MyShop
+              color: Colors.grey.withOpacity(0.4),
               spreadRadius: 2,
               blurRadius: 5,
               offset: const Offset(0, 4),
@@ -116,32 +118,51 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. ส่วนรูปภาพ (Image)
+            // 1. ส่วนรูปภาพ
             Expanded(
               flex: 4,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: firstImage != null
-                    ? Image.network(
-                        firstImage,
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, stack) => Container(
-                          color: Colors.grey[200],
-                          child: const Icon(Icons.image_not_supported),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    firstImage != null
+                        ? Image.network(
+                            firstImage,
+                            fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => Container(
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.image_not_supported),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.image, color: Colors.grey, size: 50),
+                          ),
+                    
+                    // ⭐ ป้าย "ให้เช่า" (แสดงเฉพาะ type == RENT)
+                    if (isRent)
+                      Positioned(
+                        top: 8,
+                        left: 8, // แปะไว้ซ้ายบน จะได้ไม่ทับสถานะ (ถ้ามี)
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent, // ใช้สีฟ้าให้ดูแตกต่างจากการขาย
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            "ให้เช่า",
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
                         ),
-                      )
-                    : Container(
-                        color: Colors.grey[200],
-                        width: double.infinity,
-                        child: const Icon(Icons.image, color: Colors.grey, size: 50),
                       ),
-                // ❌ ลบ Stack และ Positioned ที่แสดงป้าย AVAILABLE ออกแล้วตามคำขอ
+                  ],
+                ),
               ),
             ),
 
-            // 2. ส่วนข้อมูล (Info) - เหมือน MyShop เป๊ะๆ
+            // 2. ส่วนข้อมูล
             Expanded(
               flex: 3,
               child: Padding(
@@ -153,57 +174,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // หมวดหมู่
                         Text(
                           product.categoryName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[600],
-                          ),
+                          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                           maxLines: 1,
                         ),
                         const SizedBox(height: 2),
-                        // ชื่อสินค้า
                         Text(
                           product.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        // รายละเอียด (ตัดคำ)
                         Text(
                           product.description,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
 
-                    // ราคา และ หัวใจ
+                    // ⭐ ราคา (เปลี่ยนตามประเภท)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          "฿ ${product.price}",
-                          style: const TextStyle(
+                          // ถ้าเช่า โชว์ค่าเช่า + "/ วัน", ถ้าขาย โชว์ราคาปกติ
+                          isRent ? "฿ ${product.rentPrice} /วัน" : "฿ ${product.price}",
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.black87,
+                            fontSize: 14, // ลดขนาดลงนิดนึงเผื่อคำว่า /วัน ยาว
+                            color: isRent ? Colors.blue[700] : Colors.black87, // ถ้าเช่าให้ตัวเลขสีฟ้า
                           ),
                         ),
-                        const Icon(
-                          Icons.favorite_border,
-                          size: 20,
-                          color: Colors.grey,
-                        ),
+                        const Icon(Icons.favorite_border, size: 18, color: Colors.grey),
                       ],
                     ),
                   ],
@@ -216,3 +222,138 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+//   Widget _buildProductCard(Product product) {
+//     // เตรียม URL รูปภาพ
+//     String? firstImage = product.images.isNotEmpty
+//         ? '${ApiService.baseUrl}/uploads/${product.images[0]}'
+//         : null;
+
+//     return GestureDetector(
+//       onTap: () async {
+//         await Navigator.push(
+//           context,
+//           MaterialPageRoute(
+//             builder: (context) => ProductDetailScreen(
+//               product: product,
+//               currentUserId: widget.currentUserId,
+//             ),
+//           ),
+//         );
+//         _fetchProducts(); // กลับมาแล้วโหลดใหม่
+//       },
+//       child: Container(
+//         decoration: BoxDecoration(
+//           color: Colors.white,
+//           borderRadius: BorderRadius.circular(16),
+//           boxShadow: [
+//             BoxShadow(
+//               color: Colors.grey.withOpacity(0.4), // ✅ ใช้เงาสีเทาแบบ MyShop
+//               spreadRadius: 2,
+//               blurRadius: 5,
+//               offset: const Offset(0, 4),
+//             ),
+//           ],
+//         ),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             // 1. ส่วนรูปภาพ (Image)
+//             Expanded(
+//               flex: 4,
+//               child: ClipRRect(
+//                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+//                 child: firstImage != null
+//                     ? Image.network(
+//                         firstImage,
+//                         width: double.infinity,
+//                         height: double.infinity,
+//                         fit: BoxFit.cover,
+//                         errorBuilder: (ctx, err, stack) => Container(
+//                           color: Colors.grey[200],
+//                           child: const Icon(Icons.image_not_supported),
+//                         ),
+//                       )
+//                     : Container(
+//                         color: Colors.grey[200],
+//                         width: double.infinity,
+//                         child: const Icon(Icons.image, color: Colors.grey, size: 50),
+//                       ),
+//                 // ❌ ลบ Stack และ Positioned ที่แสดงป้าย AVAILABLE ออกแล้วตามคำขอ
+//               ),
+//             ),
+
+//             // 2. ส่วนข้อมูล (Info) - เหมือน MyShop เป๊ะๆ
+//             Expanded(
+//               flex: 3,
+//               child: Padding(
+//                 padding: const EdgeInsets.all(10.0),
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                   children: [
+//                     Column(
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       children: [
+//                         // หมวดหมู่
+//                         Text(
+//                           product.categoryName,
+//                           style: TextStyle(
+//                             fontSize: 10,
+//                             color: Colors.grey[600],
+//                           ),
+//                           maxLines: 1,
+//                         ),
+//                         const SizedBox(height: 2),
+//                         // ชื่อสินค้า
+//                         Text(
+//                           product.title,
+//                           style: const TextStyle(
+//                             fontWeight: FontWeight.bold,
+//                             fontSize: 14,
+//                           ),
+//                           maxLines: 1,
+//                           overflow: TextOverflow.ellipsis,
+//                         ),
+//                         const SizedBox(height: 4),
+//                         // รายละเอียด (ตัดคำ)
+//                         Text(
+//                           product.description,
+//                           style: TextStyle(
+//                             fontSize: 12,
+//                             color: Colors.grey[600],
+//                           ),
+//                           maxLines: 2,
+//                           overflow: TextOverflow.ellipsis,
+//                         ),
+//                       ],
+//                     ),
+
+//                     // ราคา และ หัวใจ
+//                     Row(
+//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                       children: [
+//                         Text(
+//                           "฿ ${product.price}",
+//                           style: const TextStyle(
+//                             fontWeight: FontWeight.bold,
+//                             fontSize: 16,
+//                             color: Colors.black87,
+//                           ),
+//                         ),
+//                         const Icon(
+//                           Icons.favorite_border,
+//                           size: 20,
+//                           color: Colors.grey,
+//                         ),
+//                       ],
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }

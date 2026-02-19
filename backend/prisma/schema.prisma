@@ -49,6 +49,12 @@ model Product {
   category    Category  @relation(fields: [categoryId], references: [id])
   
   favoritedBy Favorite[]
+  
+  type            ProductType @default(SALE) // บอกว่าเป็นของขายหรือของเช่า
+  rentPrice       Float?      // ราคาเช่า (เช่น วันละ 50 บาท) ใส่ ? เพราะของขายจะไม่มีค่านี้
+  isRented        Boolean     @default(false) // สถานะว่ากำลังถูกเช่าอยู่ไหม?
+  currentRenterId Int?        // ID ของคนที่กำลังเช่าอยู่
+  rentDueDate     DateTime?   // วันที่ต้องคืนของ
 }
 
 // 3. Category: หมวดหมู่สินค้า
@@ -74,4 +80,9 @@ enum ProductStatus {
   AVAILABLE // ว่าง
   RESERVED  // จองแล้ว
   SOLD      // ขายแล้ว
+}
+
+enum ProductType {
+  SALE   // สำหรับขายขาด
+  RENT   // สำหรับปล่อยเช่า
 }

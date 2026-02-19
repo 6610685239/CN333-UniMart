@@ -39,7 +39,7 @@ app.get('/categories', async (req, res) => {
 // 2. โพสต์ขายของ
 app.post('/products', upload.array('images', 5), async (req, res) => {
   try {
-    const { title, description, price, categoryId, condition, ownerId, location } = req.body;
+    const { title, description, price, categoryId, condition, ownerId, location, type, rentPrice } = req.body;
     const imageFilenames = req.files ? req.files.map(file => file.filename) : [];
 
     const newProduct = await prisma.product.create({
@@ -52,7 +52,9 @@ app.post('/products', upload.array('images', 5), async (req, res) => {
         categoryId: parseInt(categoryId),
         ownerId: parseInt(ownerId),
         images: imageFilenames,
-        status: 'AVAILABLE'
+        status: 'AVAILABLE',
+        type: type || 'SALE', // ถ้าไม่ส่งมาให้ตีว่าเป็นของขาย
+        rentPrice: rentPrice ? parseFloat(rentPrice) : null,
       },
     });
     res.json(newProduct);
