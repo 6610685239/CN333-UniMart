@@ -105,13 +105,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   String _getStatusText(String status) {
-    switch (status) {
-      case 'RESERVED':
-        return 'ติดจอง';
-      case 'SOLD':
-        return 'ขายแล้ว';
-      default:
-        return 'ว่าง';
+    if (_product.type == 'RENT') {
+      // ⭐ สำหรับของเช่า
+      switch (status) {
+        case 'RESERVED':
+          return 'ถูกเช่า';
+        case 'SOLD': // เผื่อเหนียว เผื่อมีใครกดผิดมา
+          return 'ถูกเช่า';
+        default:
+          return 'ว่าง';
+      }
+    } else {
+      // ⭐ สำหรับของขาย (เหมือนเดิม)
+      switch (status) {
+        case 'RESERVED':
+          return 'ติดจอง';
+        case 'SOLD':
+          return 'ขายแล้ว';
+        default:
+          return 'ว่าง';
+      }
     }
   }
 
@@ -499,20 +512,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                           ),
                                           fontWeight: FontWeight.bold,
                                         ),
-                                        items: const [
-                                          DropdownMenuItem(
-                                            value: 'AVAILABLE',
-                                            child: Text("ว่าง"),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 'RESERVED',
-                                            child: Text("ติดจอง"),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 'SOLD',
-                                            child: Text("ขายแล้ว"),
-                                          ),
-                                        ],
+                                        // ⭐ เอา const ออก แล้วใช้ if เช็ค type เพื่อแสดง item ที่ต่างกัน
+                                        items: _product.type == 'RENT'
+                                            ? const [
+                                                // รายการสำหรับ "ปล่อยเช่า"
+                                                DropdownMenuItem(
+                                                  value: 'AVAILABLE',
+                                                  child: Text("ว่าง"),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'RESERVED',
+                                                  child: Text("ถูกเช่า"),
+                                                ),
+                                              ]
+                                            : const [
+                                                // รายการสำหรับ "ขายขาด"
+                                                DropdownMenuItem(
+                                                  value: 'AVAILABLE',
+                                                  child: Text("ว่าง"),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'RESERVED',
+                                                  child: Text("ติดจอง"),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'SOLD',
+                                                  child: Text("ขายแล้ว"),
+                                                ),
+                                              ],
                                         onChanged: (val) {
                                           if (val != null) _updateStatus(val);
                                         },
