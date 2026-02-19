@@ -69,12 +69,17 @@ const List<ProductItem> kAllProducts = [
 
 class FavouriteManager extends ChangeNotifier {
   FavouriteManager._();
-  static final FavouriteManager instance = FavouriteManager._();
 
-  final _supabase = Supabase.instance.client;
+  static FavouriteManager? _instance;
 
+  static FavouriteManager get instance {
+    _instance ??= FavouriteManager._();
+    return _instance!;
+  }
+
+  SupabaseClient get _supabase => Supabase.instance.client;
   // Local cache
-  final Set<String>    _myFavourites    = {};   // product ids this user favourited
+  final Set<String> _myFavourites = {}; // product ids this user favourited
   final Map<String, int> _favouriteCounts = {}; // product id -> total count
 
   // Simple device-level user id (replace with auth.uid() if using Supabase Auth)
@@ -175,7 +180,6 @@ class FavouriteManager extends ChangeNotifier {
 
   int getCount(String productId) => _favouriteCounts[productId] ?? 0;
 
-  List<ProductItem> get favouritedProducts => kAllProducts
-      .where((p) => _myFavourites.contains(p.id))
-      .toList();
+  List<ProductItem> get favouritedProducts =>
+      kAllProducts.where((p) => _myFavourites.contains(p.id)).toList();
 }
