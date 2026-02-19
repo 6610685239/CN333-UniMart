@@ -38,6 +38,7 @@ dependencies:
   shared_preferences: ^2.5.3
   fluttertoast: ^9.0.0
   google_fonts: ^6.3.2
+  supabase_flutter: ^2.3.0 
 
 dev_dependencies:
   flutter_test:
