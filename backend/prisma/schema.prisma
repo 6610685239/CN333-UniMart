@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model product_favourites {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id String
+  user_id    String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([product_id, user_id])
+  @@index([product_id], map: "idx_fav_product_id")
+  @@index([user_id], map: "idx_fav_user_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username        String    @unique
+  phone_number    String
+  personal_email  String?
+  tu_email        String?
+  display_name_th String?
+  display_name_en String?
+  user_type       String?
+  faculty         String?
+  department      String?
+  organization    String?
+  status_id       String?
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  products Product[]
+
+  @@index([username], map: "idx_users_username")
+}
+
+model Product {
+  id              Int       @id @default(autoincrement())
+  title           String
+  description     String
+  price           Int
+  images          String[]
+  condition       String
+  location        String
+  status          String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  ownerId         String    @db.Uuid
+  categoryId      Int?
+  type            String
+  rentPrice       Int?
+  isRented        Boolean   @default(false)
+  currentRenterId String?
+  rentDueDate     DateTime?
+
+  owner    users     @relation(fields: [ownerId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id])
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique // เช่น 'Textbooks', 'Uniforms', 'Gadgets'
+  products Product[]
+}
