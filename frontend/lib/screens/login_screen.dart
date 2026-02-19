@@ -89,21 +89,8 @@ class _LoginScreenState extends State<LoginScreen> {
           height: size.height,
           child: Stack(
             children: [
-              // 1. Decoration Icon (Top Right)
-              Positioned(
-                top: 50,
-                right: 20,
-                child: Opacity(
-                  opacity: 0.8,
-                  child: const Icon(
-                    Icons.send_rounded,
-                    size: 40,
-                    color: Colors.black12,
-                  ),
-                ),
-              ),
 
-              // 2. Main Content
+              // Main Content
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 30.0),
                 child: Column(
@@ -230,31 +217,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 25),
 
-                    // --- Sign Up Link ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          "Don't have an account? ",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            _showSnackBar(
-                              'Please login with your University Account first.',
-                              Colors.blueAccent,
-                            );
-                          },
-                          child: Text(
-                            "Sign Up",
-                            style: TextStyle(
-                              color: _primaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
