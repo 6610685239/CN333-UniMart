@@ -19,17 +19,17 @@ const prisma = new PrismaClient();
 
 // B. Supabase Client (ของคุณ - ใช้จัดการ Login/Register)
 const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
 );
 
 // ==========================================
 // 2. Middleware
 // ==========================================
 app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Application-Key']
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Application-Key']
 }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
@@ -52,80 +52,106 @@ const upload = multer({ storage: storage });
 
 // 3.1 ตรวจสอบสิทธิ์ (Login / Verify)
 app.post('/api/auth/verify', async (req, res) => {
-    const { username, password } = req.body;
+  const { username, password } = req.body;
 
-    try {
-        const tuResponse = await axios.post(
-            'https://restapi.tu.ac.th/api/v1/auth/Ad/verify',
-            { "UserName": username, "PassWord": password },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Application-Key': process.env.TU_API_KEY
-                }
-            }
-        );
-
-        const tuData = tuResponse.data;
-
-        if (tuData.status === false) {
-            return res.status(401).json({
-                success: false,
-                message: 'รหัสผ่านไม่ถูกต้อง หรือบัญชีมีปัญหา (จาก TU API)'
-            });
+  try {
+    const tuResponse = await axios.post(
+      'https://restapi.tu.ac.th/api/v1/auth/Ad/verify',
+      { "UserName": username, "PassWord": password },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Application-Key': process.env.TU_API_KEY
         }
+      }
+    );
 
-        const { data: existingUser, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', tuData.username)
-            .single();
+    const tuData = tuResponse.data;
 
-        if (existingUser) {
-            return res.json({ success: true, action: 'LOGIN_SUCCESS', user: existingUser });
-        } else {
-            return res.json({
-                success: true,
-                action: 'GO_TO_REGISTER',
-                tuProfile: {
-                    username: tuData.username,
-                    display_name_th: tuData.displayname_th,
-                    display_name_en: tuData.displayname_en,
-                    email: tuData.email,
-                    department: tuData.department,
-                    faculty: tuData.faculty,
-                    type: tuData.type
-                }
-            });
-        }
-    } catch (err) {
-        console.error("Error:", err.message);
-        res.status(500).json({ success: false, message: 'Server Error', error: err.message });
+    if (tuData.status === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'รหัสผ่านไม่ถูกต้อง หรือบัญชีมีปัญหา (จาก TU API)'
+      });
     }
+
+    const { data: existingUser, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', tuData.username)
+      .single();
+
+    if (existingUser) {
+      try {
+        // upsert คือคำสั่ง: ถ้ามี User นี้แล้วให้อยู่เฉยๆ แต่ถ้ายังไม่มีให้สร้างใหม่
+        await prisma.user.upsert({
+          where: { id: existingUser.id },
+          update: {}, // ถ้ามีอยู่แล้ว ไม่ต้องทำอะไร
+          create: {
+            id: existingUser.id, // ใช้ UUID จาก Supabase
+            name: existingUser.display_name_th || existingUser.username,
+            // หมายเหตุ: ถ้าใน schema.prisma ตาราง User มีฟิลด์อื่นที่บังคับใส่ (เช่น email) 
+            // ให้เพื่อนเติมตรงนี้ด้วยนะครับ
+          }
+        });
+      } catch (syncErr) {
+        console.error("Prisma Sync Error during login:", syncErr.message);
+      }
+      return res.json({ success: true, action: 'LOGIN_SUCCESS', user: existingUser });
+    } else {
+      return res.json({
+        success: true,
+        action: 'GO_TO_REGISTER',
+        tuProfile: {
+          username: tuData.username,
+          display_name_th: tuData.displayname_th,
+          display_name_en: tuData.displayname_en,
+          email: tuData.email,
+          department: tuData.department,
+          faculty: tuData.faculty,
+          type: tuData.type
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Error:", err.message);
+    res.status(500).json({ success: false, message: 'Server Error', error: err.message });
+  }
 });
 
 // 3.2 ลงทะเบียนสมาชิกใหม่ (Register)
 app.post('/api/auth/register', async (req, res) => {
-    const { 
-        username, phone_number, personal_email,
-        tu_email, display_name_th, display_name_en, faculty, department, user_type 
-    } = req.body;
+  const {
+    username, phone_number, personal_email,
+    tu_email, display_name_th, display_name_en, faculty, department, user_type
+  } = req.body;
 
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{
+        username, phone_number, personal_email, tu_email,
+        display_name_th, display_name_en, faculty, department, user_type
+      }])
+      .select();
+
+    if (error) throw error;
     try {
-        const { data, error } = await supabase
-            .from('users')
-            .insert([{
-                username, phone_number, personal_email, tu_email,
-                display_name_th, display_name_en, faculty, department, user_type
-            }])
-            .select();
-
-        if (error) throw error;
-        res.json({ success: true, message: 'ลงทะเบียนสำเร็จ!', user: data[0] });
-    } catch (err) {
-        console.error("Register Error:", err.message);
-        res.status(500).json({ success: false, message: 'บันทึกข้อมูลไม่สำเร็จ', error: err.message });
+      await prisma.user.create({
+        data: {
+          id: data[0].id, // ใช้ UUID เดียวกันกับ Supabase
+          name: data[0].display_name_th || data[0].username,
+          // ถ้าเพื่อนมีฟิลด์อื่นบังคับ (เช่น profileImage) ให้ใส่ด้วย
+        }
+      });
+    } catch (prismaErr) {
+      console.log("Prisma Sync Warning:", prismaErr.message);
     }
+    res.json({ success: true, message: 'ลงทะเบียนสำเร็จ!', user: data[0] });
+  } catch (err) {
+    console.error("Register Error:", err.message);
+    res.status(500).json({ success: false, message: 'บันทึกข้อมูลไม่สำเร็จ', error: err.message });
+  }
 });
 
 // ==========================================
@@ -133,7 +159,7 @@ app.post('/api/auth/register', async (req, res) => {
 // ==========================================
 
 // 4.1 ดึงรายการหมวดหมู่
-app.get('/categories', async (req, res) => {
+app.get('/api/categories', async (req, res) => {
   try {
     const categories = await prisma.category.findMany();
     res.json(categories);
@@ -143,17 +169,18 @@ app.get('/categories', async (req, res) => {
 });
 
 // 4.2 โพสต์ขายของ
-app.post('/products', upload.array('images', 5), async (req, res) => {
+app.post('/api/products', upload.array('images', 5), async (req, res) => {
   try {
     const { title, description, price, categoryId, condition, ownerId, location, type, rentPrice } = req.body;
     const imageFilenames = req.files ? req.files.map(file => file.filename) : [];
+    console.log("ownerId:", ownerId);
 
     const newProduct = await prisma.product.create({
       data: {
         title, description, price: parseFloat(price), condition,
         location: location || 'ไม่ระบุ',
         categoryId: parseInt(categoryId),
-        ownerId: parseInt(ownerId),
+        ownerId: ownerId,
         images: imageFilenames,
         status: 'AVAILABLE',
         type: type || 'SALE',
@@ -168,11 +195,11 @@ app.post('/products', upload.array('images', 5), async (req, res) => {
 });
 
 // 4.3 ดึงสินค้าของฉัน (หน้าร้านค้า)
-app.get('/my-products/:userId', async (req, res) => {
+app.get('/api/my-products/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const products = await prisma.product.findMany({
-      where: { ownerId: parseInt(userId) },
+      where: { ownerId: userId },
       orderBy: { createdAt: 'desc' },
       include: {
         category: true,
@@ -187,7 +214,7 @@ app.get('/my-products/:userId', async (req, res) => {
 });
 
 // 4.4 ดึงรายละเอียดสินค้า 1 ชิ้น
-app.get('/products/:id', async (req, res) => {
+app.get('/api/products/:id', async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
       where: { id: parseInt(req.params.id) },
@@ -204,7 +231,7 @@ app.get('/products/:id', async (req, res) => {
 });
 
 // 4.5 ลบสินค้า
-app.delete('/products/:id', async (req, res) => {
+app.delete('/api/products/:id', async (req, res) => {
   try {
     await prisma.product.delete({
       where: { id: parseInt(req.params.id) },
@@ -216,7 +243,7 @@ app.delete('/products/:id', async (req, res) => {
 });
 
 // 4.6 แก้ไขข้อมูลสินค้า
-app.patch('/products/:id', upload.array('images', 5), async (req, res) => {
+app.patch('/api/products/:id', upload.array('images', 5), async (req, res) => {
   const { id } = req.params;
   const { title, description, price, condition, categoryId, status, location } = req.body;
 
@@ -241,25 +268,41 @@ app.patch('/products/:id', upload.array('images', 5), async (req, res) => {
 });
 
 // 4.7 ดึงสินค้าทั้งหมด (สำหรับหน้า Home)
-app.get('/products', async (req, res) => {
-  try {
-    const products = await prisma.product.findMany({
-      where: { status: 'AVAILABLE' },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        category: true,
-        owner: { select: { name: true, profileImage: true } }
-      }
-    });
-    res.json(products);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+// app.get('/products', async (req, res) => {
+//   try {
+//     const products = await prisma.product.findMany({
+//       where: { status: 'AVAILABLE' },
+//       orderBy: { createdAt: 'desc' },
+//       include: {
+//         category: true,
+//         owner: { select: { name: true, profileImage: true } }
+//       }
+//     });
+//     res.json(products);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+app.get("/api/products", async (req, res) => {
+  const { ownerId } = req.query;
+
+  console.log("ownerId from query:", ownerId);
+
+
+  const products = await prisma.product.findMany({
+    where: ownerId
+      ? { ownerId: ownerId }
+      : undefined,
+    include: { owner: true }
+  });
+
+  res.json(products);
 });
+
 
 // ==========================================
 // 5. START SERVER
 // ==========================================
 app.listen(PORT, () => {
-    console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`✅ Server is running on port ${PORT}`);
 });
