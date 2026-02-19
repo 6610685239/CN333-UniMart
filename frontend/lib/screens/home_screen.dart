@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import 'product_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  final int currentUserId; // รับ ID เรามา เพื่อจะได้กรองของตัวเองออก
+  final String currentUserId; // รับ ID เรามา เพื่อจะได้กรองของตัวเองออก
 
   const HomeScreen({super.key, required this.currentUserId});
 
@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 Widget _buildProductCard(Product product) {
     String? firstImage = product.images.isNotEmpty
-        ? '${ApiService.baseUrl}/uploads/${product.images[0]}'
+        ? 'http://10.0.2.2:3000/uploads/${product.images[0]}'
         : null;
 
     // ⭐ เช็คว่าเป็นของเช่าหรือไม่

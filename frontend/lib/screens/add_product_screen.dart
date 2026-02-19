@@ -8,7 +8,7 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:image_cropper/image_cropper.dart';
 
 class AddProductScreen extends StatefulWidget {
-  final int userId;
+  final String userId;
 
   const AddProductScreen({super.key, required this.userId});
 
@@ -43,7 +43,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   Future<void> _fetchCategories() async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiService.baseUrl}/categories'),
+        Uri.parse('http://10.0.2.2:3000/api/categories'),
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -60,19 +60,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
       print("Error loading categories: $e");
     }
   }
-
-  // Future<void> _pickImages() async {
-  //   try {
-  //     final List<XFile> images = await _picker.pickMultiImage();
-  //     if (images.isNotEmpty) {
-  //       setState(() {
-  //         _selectedImages.addAll(images.map((x) => File(x.path)));
-  //       });
-  //     }
-  //   } catch (e) {
-  //     print("Error picking images: $e");
-  //   }
-  // }
 
   Future<void> _pickImages() async {
     try {
@@ -160,7 +147,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     try {
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('${ApiService.baseUrl}/products'),
+        Uri.parse('http://10.0.2.2:3000/api/products'),
       );
 
       request.fields['title'] = _titleCtrl.text;
@@ -644,9 +631,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     items:
                                         [
                                           'มือหนึ่ง',
-                                          'มือสอง',
-                                          'สภาพดี',
-                                          'มีตำหนิ',
+                                          'มือสอง (สภาพดี)',
+                                          'มือสอง (มีตำหนิ)',
                                         ].map((String val) {
                                           return DropdownMenuItem(
                                             value: val,

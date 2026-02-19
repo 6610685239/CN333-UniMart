@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -64,12 +65,13 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
+        // String safeUserId = result['user']['id'].toString();
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => HomeScreen(
-              currentUserId: result['userId'], 
-            ),
+            builder: (context) =>
+                MainScreen(user: result['user']),
           ),
         );
       }
