@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 class AddProductScreen extends StatefulWidget {
   final int userId;
@@ -60,16 +61,75 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
+  // Future<void> _pickImages() async {
+  //   try {
+  //     final List<XFile> images = await _picker.pickMultiImage();
+  //     if (images.isNotEmpty) {
+  //       setState(() {
+  //         _selectedImages.addAll(images.map((x) => File(x.path)));
+  //       });
+  //     }
+  //   } catch (e) {
+  //     print("Error picking images: $e");
+  //   }
+  // }
+
   Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
+
       if (images.isNotEmpty) {
-        setState(() {
-          _selectedImages.addAll(images.map((x) => File(x.path)));
-        });
+        for (var img in images) {
+          if (_selectedImages.length >= 5) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("ใส่รูปได้สูงสุด 5 รูปเท่านั้นครับ"),
+              ),
+            );
+            break;
+          }
+
+          // ⭐ จุดที่แก้ไข: ย้าย aspectRatioPresets เข้ามาไว้ใน uiSettings
+          CroppedFile? croppedFile = await ImageCropper().cropImage(
+            sourcePath: img.path,
+            uiSettings: [
+              AndroidUiSettings(
+                toolbarTitle: 'ปรับขนาดรูปภาพ',
+                toolbarColor: Colors.black,
+                toolbarWidgetColor: Colors.white,
+                initAspectRatio:
+                    CropAspectRatioPreset.square, // เริ่มต้นด้วยสัดส่วน 1:1
+                lockAspectRatio: false, // อนุญาตให้ผู้ใช้เปลี่ยนสัดส่วนเองได้
+                // ตั้งค่าสัดส่วนสำหรับ Android
+                aspectRatioPresets: [
+                  CropAspectRatioPreset.square,
+                  CropAspectRatioPreset.ratio4x3,
+                  CropAspectRatioPreset.original,
+                ],
+              ),
+              IOSUiSettings(
+                title: 'ปรับขนาดรูปภาพ',
+                cancelButtonTitle: 'ยกเลิก',
+                doneButtonTitle: 'เสร็จสิ้น',
+                // ตั้งค่าสัดส่วนสำหรับ iOS
+                aspectRatioPresets: [
+                  CropAspectRatioPreset.square,
+                  CropAspectRatioPreset.ratio4x3,
+                  CropAspectRatioPreset.original,
+                ],
+              ),
+            ],
+          );
+
+          if (croppedFile != null) {
+            setState(() {
+              _selectedImages.add(File(croppedFile.path));
+            });
+          }
+        }
       }
     } catch (e) {
-      print("Error picking images: $e");
+      print("Error picking/cropping images: $e");
     }
   }
 
