@@ -159,7 +159,17 @@ app.post('/api/auth/register', async (req, res) => {
 // ==========================================
 
 // 4.1 ดึงรายการหมวดหมู่
+// app.get('/api/categories', async (req, res) => {
+//   try {
+//     const categories = await prisma.category.findMany();
+//     res.json(categories);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+
 app.get('/api/categories', async (req, res) => {
+  console.log("HIT /api/categories");
   try {
     const categories = await prisma.category.findMany();
     res.json(categories);
@@ -167,6 +177,7 @@ app.get('/api/categories', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // 4.2 โพสต์ขายของ
 app.post('/api/products', upload.array('images', 5), async (req, res) => {
