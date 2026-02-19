@@ -14,18 +14,18 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0; 
-  late final int currentUserId; 
+  late final String currentUserId; 
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     // ✅ ดึง ID จริงๆ จากข้อมูล User ที่ส่งมา
-    currentUserId = widget.user['id']; 
+    currentUserId = widget.user['id'].toString(); 
 
     _pages = [
       HomeScreen(currentUserId: currentUserId), 
-      const MyShopScreen(), 
+      MyShopScreen(currentUserId: currentUserId), // ส่ง ID ตัวเองไปด้วย
     ];
   }
 

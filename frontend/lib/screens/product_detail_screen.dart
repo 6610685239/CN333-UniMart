@@ -5,7 +5,7 @@ import 'edit_product_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
-  final int currentUserId; // <--- รับค่า ID ของคนดูเข้ามา
+  final String currentUserId; // <--- รับค่า ID ของคนดูเข้ามา
 
   const ProductDetailScreen({
     super.key,
@@ -261,7 +261,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             onPageChanged: (index) =>
                                 setState(() => _currentImageIndex = index),
                             itemBuilder: (context, index) => Image.network(
-                              '${ApiService.baseUrl}/uploads/${_product.images[index]}',
+                              'http://10.0.2.2:3000/uploads/${_product.images[index]}',
                               fit: BoxFit
                                   .contain, // ปรับเป็น contain ให้เห็นทั้งรูป
                             ),
