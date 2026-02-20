@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'favourite_manager.dart';
 import 'favourited_page.dart';
+import '../screens/add_product_screen.dart';
+import '../screens/my_shop_screen.dart';
 
 // ── Local UI-only models ───────────────────────────────────────────────────────
 
@@ -21,7 +23,8 @@ class _NavItem {
 // ── HomePage ───────────────────────────────────────────────────────────────────
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String currentUserId;
+  const HomePage({super.key, required this.currentUserId});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -30,6 +33,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentBanner = 0;
   int _selectedNav   = 0;
+  bool _hasUnseenFavourites = false; // ✅ track badge state
   late PageController _bannerController;
 
   // Palette
@@ -41,14 +45,14 @@ class _HomePageState extends State<HomePage> {
   static const Color _inactive = Color(0xFFB0B8C1);
 
   static const List<_CategoryItem> _categories = [
-    _CategoryItem('Hat',         Icons.hive_outlined,          Color(0xFFE3F2FD)), // Soft Pastel Blue (Replaced Grey)
-    _CategoryItem('Bags',        Icons.shopping_bag_outlined,  Color(0xFFFFF9C4)), // Soft Pastel Yellow
-    _CategoryItem('Clothes',     Icons.dry_cleaning_outlined,  Color(0xFFFFEBEE)), // Soft Pastel Rose
-    _CategoryItem('Shoes',       Icons.hiking_outlined,        Color(0xFFF3E5F5)), // Soft Pastel Lavender (Replaced Grey)
-    _CategoryItem('Accessories', Icons.watch_outlined,         Color(0xFFFFF3E0)), // Soft Pastel Orange/Gold
-    _CategoryItem('Books',       Icons.menu_book_outlined,     Color(0xFFFCE4EC)), // Soft Pastel Pink
-    _CategoryItem('Electronics', Icons.devices_outlined,       Color(0xFFE0F2F1)), // Soft Pastel Mint (Replaced Grey)
-    _CategoryItem('Others',      Icons.category_outlined,      Color(0xFFE8F5E9)), // Soft Pastel Green
+    _CategoryItem('Hat',         Icons.hive_outlined,          Color(0xFFE3F2FD)),
+    _CategoryItem('Bags',        Icons.shopping_bag_outlined,  Color(0xFFFFF9C4)),
+    _CategoryItem('Clothes',     Icons.dry_cleaning_outlined,  Color(0xFFFFEBEE)),
+    _CategoryItem('Shoes',       Icons.hiking_outlined,        Color(0xFFF3E5F5)),
+    _CategoryItem('Accessories', Icons.watch_outlined,         Color(0xFFFFF3E0)),
+    _CategoryItem('Books',       Icons.menu_book_outlined,     Color(0xFFFCE4EC)),
+    _CategoryItem('Electronics', Icons.devices_outlined,       Color(0xFFE0F2F1)),
+    _CategoryItem('Others',      Icons.category_outlined,      Color(0xFFE8F5E9)),
   ];
 
   static const List<_NavItem> _navItems = [
@@ -64,10 +68,20 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _bannerController = PageController();
     _startBannerTimer();
-    FavouriteManager.instance.addListener(_refresh);
+    FavouriteManager.instance.init(widget.currentUserId);
+    FavouriteManager.instance.addListener(_onFavouriteChanged);
   }
 
-  void _refresh() { if (mounted) setState(() {}); }
+  void _onFavouriteChanged() {
+    if (mounted) {
+      setState(() {
+        // ✅ badge ขึ้นเมื่อมีรายการและยังไม่ได้เข้าไปดู
+        if (FavouriteManager.instance.favouritedProducts.isNotEmpty) {
+          _hasUnseenFavourites = true;
+        }
+      });
+    }
+  }
 
   void _startBannerTimer() {
     Future.delayed(const Duration(seconds: 3), () {
@@ -81,9 +95,23 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    FavouriteManager.instance.removeListener(_refresh);
+    FavouriteManager.instance.removeListener(_onFavouriteChanged);
     _bannerController.dispose();
     super.dispose();
+  }
+
+  // ✅ กดปุ่ม Favourited → badge หายทันที แล้ว navigate
+  void _openFavouritedPage() {
+    setState(() {
+      _selectedNav = 3;
+      _hasUnseenFavourites = false;
+    });
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const FavouritedPage()),
+    ).then((_) {
+      if (mounted) setState(() => _selectedNav = 0);
+    });
   }
 
   @override
@@ -151,18 +179,25 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(width: 10),
-          Stack(
-            children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: _bgColor, borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.shopping_bag_outlined, size: 22, color: _textDark),
-              ),
-              Positioned(right: 8, top: 8,
-                child: Container(width: 9, height: 9,
-                  decoration: const BoxDecoration(color: _deepPink, shape: BoxShape.circle))),
-            ],
+          // ✅ Shopping bag — ไม่มี link แค่ icon + dot ธรรมดา
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: _bgColor, borderRadius: BorderRadius.circular(12)),
+            child: Stack(
+              children: [
+                const Center(
+                  child: Icon(Icons.shopping_bag_outlined, size: 22, color: _textDark),
+                ),
+                Positioned(
+                  right: 8, top: 8,
+                  child: Container(
+                    width: 9, height: 9,
+                    decoration: const BoxDecoration(
+                      color: _deepPink, shape: BoxShape.circle)),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -305,7 +340,7 @@ class _HomePageState extends State<HomePage> {
                         blurRadius: 8, offset: const Offset(0, 2))],
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(11),
+                      padding: const EdgeInsets.all(9),
                       child: Image.asset(
                         cat.label == 'Clothes'
                             ? 'assets/images/shirt.png'
@@ -360,7 +395,6 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image area
           Stack(
             children: [
               ClipRRect(
@@ -386,8 +420,6 @@ class _HomePageState extends State<HomePage> {
                 )),
             ],
           ),
-
-          // Info area
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
@@ -402,12 +434,9 @@ class _HomePageState extends State<HomePage> {
                     style: TextStyle(fontSize: 9, color: _textMid, height: 1.3),
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                   const Spacer(),
-
-                  // Price + heart row (pinned to bottom)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      // ราคาเริ่มต้น
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,7 +449,6 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ),
                       ),
-                      // ราคาเช่า
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,8 +461,8 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ),
                       ),
-                      // Heart + count
                       GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => fav.toggle(item.id),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -486,20 +514,24 @@ class _HomePageState extends State<HomePage> {
         height: 64,
         child: Row(
           children: List.generate(_navItems.length, (index) {
-            final isSell     = _navItems[index].label == 'Sell';
+            final isSell   = _navItems[index].label == 'Sell';
             final isSelected = _selectedNav == index;
+            final isFavNav = _navItems[index].label == 'Favourited';
 
             return Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  if (_navItems[index].label == 'Favourited') {
+                  if (isFavNav) {
+                    _openFavouritedPage(); 
+                  } else if (_navItems[index].label == 'Sell') {
                     setState(() => _selectedNav = index);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const FavouritedPage()),
+                      MaterialPageRoute(
+                        builder: (_) => MyShopScreen(currentUserId: widget.currentUserId),
+                      ),
                     ).then((_) {
-                      // Reset back to Home tab when returning
                       if (mounted) setState(() => _selectedNav = 0);
                     });
                   } else {
@@ -528,15 +560,32 @@ class _HomePageState extends State<HomePage> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              AnimatedScale(
-                                scale: isSelected ? 1.15 : 1.0,
-                                duration: const Duration(milliseconds: 200),
-                                child: Icon(
-                                  isSelected
-                                      ? _navItems[index].filledIcon
-                                      : _navItems[index].outlinedIcon,
-                                  color: isSelected ? _deepPink : _inactive,
-                                  size: 22)),
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  AnimatedScale(
+                                    scale: isSelected ? 1.15 : 1.0,
+                                    duration: const Duration(milliseconds: 200),
+                                    child: Icon(
+                                      isSelected
+                                          ? _navItems[index].filledIcon
+                                          : _navItems[index].outlinedIcon,
+                                      color: isSelected ? _deepPink : _inactive,
+                                      size: 22)),
+                                  // ✅ dot badge — แสดงเมื่อมี unseen favourites เท่านั้น
+                                  if (isFavNav && _hasUnseenFavourites)
+                                    Positioned(
+                                      right: -5, top: -3,
+                                      child: Container(
+                                        width: 8, height: 8,
+                                        decoration: const BoxDecoration(
+                                          color: _deepPink,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                               const SizedBox(height: 2),
                               Text(_navItems[index].label, style: TextStyle(
                                 fontSize: 9,

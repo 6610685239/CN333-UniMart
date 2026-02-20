@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:math';
 
 // ── Product Model (shared across pages) ───────────────────────────────────────
 
@@ -71,39 +70,37 @@ class FavouriteManager extends ChangeNotifier {
   FavouriteManager._();
 
   static FavouriteManager? _instance;
-
   static FavouriteManager get instance {
     _instance ??= FavouriteManager._();
     return _instance!;
   }
 
   SupabaseClient get _supabase => Supabase.instance.client;
-  // Local cache
-  final Set<String> _myFavourites = {}; // product ids this user favourited
-  final Map<String, int> _favouriteCounts = {}; // product id -> total count
 
-  // Simple device-level user id (replace with auth.uid() if using Supabase Auth)
-  late final String _userId;
+  final Set<String> _myFavourites = {};
+  final Map<String, int> _favouriteCounts = {};
+
+  // ✅ เปลี่ยนจาก late String เป็น String? เพื่อป้องกัน LateInitializationError
+  String? _userId;
   bool _initialized = false;
 
-  // ── Init: call once from main.dart or app startup ─────────
-  Future<void> init() async {
-    if (_initialized) return;
+  // ── Init: รับ userId จากภายนอก (เรียกหลัง login สำเร็จ) ───
+  Future<void> init(String userId) async {
+    // ถ้า userId เดิมอยู่แล้วไม่ต้องโหลดซ้ำ
+    if (_initialized && _userId == userId) return;
     _initialized = true;
-
-    // Generate a stable device ID (in production use device_info_plus or auth)
-    _userId = 'user_${Random().nextInt(999999).toString().padLeft(6, '0')}';
-    // NOTE: Replace above with shared_preferences to persist across restarts:
-    // final prefs = await SharedPreferences.getInstance();
-    // _userId = prefs.getString('device_id') ?? _generateAndSave(prefs);
+    _userId = userId;
 
     await _loadFromSupabase();
   }
 
-  // ── Load all counts + this user's favourites from Supabase ─
+  // ── โหลดข้อมูลจาก Supabase ─────────────────────────────────
   Future<void> _loadFromSupabase() async {
+    // ✅ Guard: ถ้า userId ยังไม่มีให้หยุดทันที ไม่ error
+    if (_userId == null) return;
+
     try {
-      // 1. All favourite counts (from view)
+      // 1. โหลด counts ทั้งหมด (จาก view)
       final counts = await _supabase
           .from('product_favourite_counts')
           .select('product_id, favourite_count');
@@ -113,12 +110,13 @@ class FavouriteManager extends ChangeNotifier {
             row['favourite_count'] as int;
       }
 
-      // 2. This user's favourites
+      // 2. โหลด favourites ของ user นี้
       final myFavs = await _supabase
           .from('product_favourites')
           .select('product_id')
-          .eq('user_id', _userId);
+          .eq('user_id', _userId!);
 
+      _myFavourites.clear();
       for (final row in myFavs) {
         _myFavourites.add(row['product_id'] as String);
       }
@@ -129,11 +127,17 @@ class FavouriteManager extends ChangeNotifier {
     }
   }
 
-  // ── Toggle favourite — instant UI, background Supabase sync ──
+  // ── Toggle: อัปเดต UI ทันที แล้วค่อย sync Supabase ──────────
   void toggle(String productId) {
+    // ✅ Guard: ถ้า userId ยังไม่ถูก init ไม่ทำอะไร
+    if (_userId == null) {
+      debugPrint('FavouriteManager: toggle called before init()');
+      return;
+    }
+
     final wasLiked = _myFavourites.contains(productId);
 
-    // 1. Update local state immediately (zero delay)
+    // อัปเดต local ทันที
     if (wasLiked) {
       _myFavourites.remove(productId);
       _favouriteCounts[productId] = (_favouriteCounts[productId] ?? 1) - 1;
@@ -141,28 +145,31 @@ class FavouriteManager extends ChangeNotifier {
       _myFavourites.add(productId);
       _favouriteCounts[productId] = (_favouriteCounts[productId] ?? 0) + 1;
     }
-    notifyListeners(); // UI updates instantly here
+    notifyListeners();
 
-    // 2. Sync to Supabase in background (fire-and-forget)
+    // Sync Supabase ใน background
     _syncToSupabase(productId, wasLiked);
   }
 
   Future<void> _syncToSupabase(String productId, bool wasLiked) async {
+    // ✅ Guard อีกชั้น
+    if (_userId == null) return;
+
     try {
       if (wasLiked) {
         await _supabase
             .from('product_favourites')
             .delete()
             .eq('product_id', productId)
-            .eq('user_id', _userId);
+            .eq('user_id', _userId!);
       } else {
         await _supabase.from('product_favourites').insert({
           'product_id': productId,
-          'user_id': _userId,
+          'user_id': _userId!,
         });
       }
     } catch (e) {
-      // Rollback on Supabase error
+      // Rollback เมื่อ Supabase error
       if (wasLiked) {
         _myFavourites.add(productId);
         _favouriteCounts[productId] = (_favouriteCounts[productId] ?? 0) + 1;
@@ -177,9 +184,8 @@ class FavouriteManager extends ChangeNotifier {
 
   // ── Getters ────────────────────────────────────────────────
   bool isFavourited(String productId) => _myFavourites.contains(productId);
-
   int getCount(String productId) => _favouriteCounts[productId] ?? 0;
-
   List<ProductItem> get favouritedProducts =>
       kAllProducts.where((p) => _myFavourites.contains(p.id)).toList();
 }
+

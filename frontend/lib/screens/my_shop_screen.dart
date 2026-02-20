@@ -6,7 +6,7 @@ import 'product_detail_screen.dart';
 
 class MyShopScreen extends StatefulWidget {
   const MyShopScreen({super.key, required this.currentUserId});
-  final String currentUserId ; // 
+  final String currentUserId;
 
   @override
   State<MyShopScreen> createState() => _MyShopScreenState();
@@ -17,6 +17,13 @@ class _MyShopScreenState extends State<MyShopScreen> {
   List<Product> products = [];
   bool isLoading = true;
 
+  // Palette (match HomePage style)
+  static const Color _pink     = Color(0xFFF48FB1);
+  static const Color _deepPink = Color(0xFFE91E8C);
+  static const Color _bgColor  = Color(0xFFF7F8FA);
+  static const Color _textDark = Color(0xFF1A1F36);
+  static const Color _textMid  = Color(0xFF8A94A6);
+
   @override
   void initState() {
     super.initState();
@@ -25,87 +32,169 @@ class _MyShopScreenState extends State<MyShopScreen> {
 
   Future<void> _fetchData() async {
     try {
-      print("LOAD PRODUCTS CALLED");
       final result = await api.getMyProducts(widget.currentUserId);
-      print("DATA: $result");
       setState(() {
         products = result;
         isLoading = false;
       });
     } catch (e) {
-      print("Error: $e");
       setState(() => isLoading = false);
     }
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'RESERVED':
-        return Colors.orange;
-      case 'SOLD':
-        return Colors.red;
-      default:
-        return Colors.green;
+      case 'RESERVED': return Colors.orange;
+      case 'SOLD':     return Colors.red;
+      default:         return Colors.green;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100], // พื้นหลังสีเทาอ่อนๆ ให้ Card เด่นขึ้น
+      backgroundColor: _bgColor,
       appBar: AppBar(
+        // ✅ หัวข้อภาษาอังกฤษ + อยู่ตรงกลาง
         title: const Text(
-          "ร้านค้าของฉัน",
-          style: TextStyle(color: Colors.black),
+          'My Shop',
+          style: TextStyle(
+            color: _textDark,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: const IconThemeData(color: _textDark),
+        surfaceTintColor: Colors.white,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _fetchData,
-              child: GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.60,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  // เรียกใช้ฟังก์ชันที่เรากำลังจะสร้างด้านล่าง
-                  return _buildProductCard(product);
-                },
-              ),
+              color: _deepPink,
+              child: products.isEmpty
+                  // ✅ Empty state — กดรีเฟรชได้ด้วย CustomScrollView
+                  ? CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverFillRemaining(
+                          child: _buildEmptyState(),
+                        ),
+                      ],
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(14),
+                      physics: const BouncingScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.60,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: products.length,
+                      itemBuilder: (context, index) =>
+                          _buildProductCard(products[index]),
+                    ),
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddProductScreen(userId: widget.currentUserId), // ส่ง ID ตัวเองไปด้วย
+              builder: (context) =>
+                  AddProductScreen(userId: widget.currentUserId),
             ),
           );
           if (result == true) _fetchData();
         },
-        backgroundColor: Colors.black, // ปุ่มสีดำให้ดูมินิมอล
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: _deepPink,
+        child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
     );
   }
 
-  // ⭐ ฟังก์ชันสร้างการ์ดสินค้า (วางไว้ล่างสุดของคลาส _MyShopScreenState) ⭐
+  // ── EMPTY STATE ──────────────────────────────────────────────
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ไอคอนวงกลม
+          Container(
+            width: 88, height: 88,
+            decoration: BoxDecoration(
+              color: _pink.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.storefront_outlined, size: 42, color: _pink),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            "No listings yet",
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: _textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Tap + to list your first item for sale or rent',
+            style: TextStyle(fontSize: 13, color: _textMid),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          // ปุ่ม shortcut
+          GestureDetector(
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      AddProductScreen(userId: widget.currentUserId),
+                ),
+              );
+              if (result == true) _fetchData();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF48FB1), Color(0xFFE91E8C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: _pink.withOpacity(0.4),
+                    blurRadius: 12, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: const Text(
+                'Start Selling',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── PRODUCT CARD ─────────────────────────────────────────────
   Widget _buildProductCard(Product product) {
-    String? firstImage = product.images.isNotEmpty
+    final String? firstImage = product.images.isNotEmpty
         ? 'http://10.0.2.2:3000/uploads/${product.images[0]}'
         : null;
-
-    // เช็คว่าเป็นของเช่าหรือไม่
-    bool isRent = product.type == 'RENT';
+    final bool isRent = product.type == 'RENT';
 
     return GestureDetector(
       onTap: () async {
@@ -114,11 +203,11 @@ class _MyShopScreenState extends State<MyShopScreen> {
           MaterialPageRoute(
             builder: (context) => ProductDetailScreen(
               product: product,
-              currentUserId: widget.currentUserId.toString(), // ส่ง ID ตัวเองไป
+              currentUserId: widget.currentUserId.toString(),
             ),
           ),
         );
-        _fetchData(); // พอกลับมาให้รีเฟรชหน้า
+        _fetchData();
       },
       child: Container(
         decoration: BoxDecoration(
@@ -126,92 +215,60 @@ class _MyShopScreenState extends State<MyShopScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.4),
-              spreadRadius: 2,
-              blurRadius: 5,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.07),
+              spreadRadius: 1,
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. ส่วนรูปภาพ
+            // รูปภาพ
             Expanded(
               flex: 4,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     firstImage != null
-                        ? Image.network(
-                            firstImage,
-                            fit: BoxFit.cover,
+                        ? Image.network(firstImage, fit: BoxFit.cover,
                             errorBuilder: (ctx, err, stack) => Container(
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.image_not_supported),
-                            ),
-                          )
+                              color: Colors.grey[100],
+                              child: const Icon(Icons.image_not_supported_outlined,
+                                color: Colors.grey),
+                            ))
                         : Container(
-                            color: Colors.grey[200],
-                            child: const Icon(
-                              Icons.image,
-                              color: Colors.grey,
-                              size: 50,
-                            ),
-                          ),
+                            color: Colors.grey[100],
+                            child: const Icon(Icons.image_outlined,
+                              color: Colors.grey, size: 50)),
 
-                    // ป้าย "For Rent" สีฟ้า (แสดงเฉพาะ type == RENT) มุมซ้ายบน
                     if (isRent)
                       Positioned(
-                        top: 8,
-                        left: 8,
+                        top: 8, left: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.blueAccent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            "For Rent",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                            borderRadius: BorderRadius.circular(8)),
+                          child: const Text('For Rent',
+                            style: TextStyle(color: Colors.white, fontSize: 10,
+                              fontWeight: FontWeight.bold)),
                         ),
                       ),
 
-                    // ป้ายบอกสถานะ (มุมขวาบน)
                     Positioned(
-                      top: 8,
-                      right: 8,
+                      top: 8, right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(
-                            product.status,
-                          ).withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          product.status,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                          color: _getStatusColor(product.status).withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(12)),
+                        child: Text(product.status,
+                          style: const TextStyle(color: Colors.white, fontSize: 10,
+                            fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -219,11 +276,11 @@ class _MyShopScreenState extends State<MyShopScreen> {
               ),
             ),
 
-            // 2. ส่วนข้อมูล
+            // ข้อมูล
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.all(10.0),
+                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -231,56 +288,29 @@ class _MyShopScreenState extends State<MyShopScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          product.categoryName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 1,
-                        ),
+                        Text(product.categoryName,
+                          style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                          maxLines: 1),
                         const SizedBox(height: 2),
-                        Text(
-                          product.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          product.description,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        Text(product.title,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 3),
+                        Text(product.description,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
                       ],
                     ),
-
-                    // ราคา (ถ้าเป็นเช่า โชว์ rentPrice / Day, ถ้าไม่ใช่ โชว์ price)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isRent
-                              ? "฿ ${product.rentPrice} / Day"
-                              : "฿ ${product.price}",
+                          isRent ? '฿ ${product.rentPrice} / Day' : '฿ ${product.price}',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: isRent ? Colors.blue[700] : Colors.black87,
-                          ),
+                            fontWeight: FontWeight.bold, fontSize: 14,
+                            color: isRent ? Colors.blue[700] : _textDark),
                         ),
-                        const Icon(
-                          Icons.favorite_border,
-                          size: 18,
-                          color: Colors.grey,
-                        ),
+                        Icon(Icons.favorite_border, size: 18, color: Colors.grey[400]),
                       ],
                     ),
                   ],
