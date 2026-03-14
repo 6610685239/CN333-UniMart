@@ -33,7 +33,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentBanner = 0;
   int _selectedNav   = 0;
-  bool _hasUnseenFavourites = false; // ✅ track badge state
+  bool _hasUnseenFavourites = false;
   late PageController _bannerController;
 
   // Palette
@@ -75,7 +75,6 @@ class _HomePageState extends State<HomePage> {
   void _onFavouriteChanged() {
     if (mounted) {
       setState(() {
-        // ✅ badge ขึ้นเมื่อมีรายการและยังไม่ได้เข้าไปดู
         if (FavouriteManager.instance.favouritedProducts.isNotEmpty) {
           _hasUnseenFavourites = true;
         }
@@ -100,7 +99,6 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  // ✅ กดปุ่ม Favourited → badge หายทันที แล้ว navigate
   void _openFavouritedPage() {
     setState(() {
       _selectedNav = 3;
@@ -179,7 +177,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(width: 10),
-          // ✅ Shopping bag — ไม่มี link แค่ icon + dot ธรรมดา
           Container(
             width: 44, height: 44,
             decoration: BoxDecoration(
@@ -572,7 +569,6 @@ class _HomePageState extends State<HomePage> {
                                           : _navItems[index].outlinedIcon,
                                       color: isSelected ? _deepPink : _inactive,
                                       size: 22)),
-                                  // ✅ dot badge — แสดงเมื่อมี unseen favourites เท่านั้น
                                   if (isFavNav && _hasUnseenFavourites)
                                     Positioned(
                                       right: -5, top: -3,
