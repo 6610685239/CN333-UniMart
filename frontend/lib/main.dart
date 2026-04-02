@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/login_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/chat_list_screen.dart';
@@ -12,10 +13,11 @@ import 'pages/favourite_manager.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase — ต้องเรียกก่อน FavouriteManager.init()
+  await dotenv.load(fileName: '.env');
+
   await Supabase.initialize(
-    url: 'https://ztebnnqowoemjlnzqsad.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0ZWJubnFvd29lbWpsbnpxc2FkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTE0NzM3OSwiZXhwIjoyMDg2NzIzMzc5fQ.OW0w1NzYeiVrNSejwYI6i-Y4ygZiVI64dwmF_NgpW3I',
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
   await FavouriteManager.instance.init();
