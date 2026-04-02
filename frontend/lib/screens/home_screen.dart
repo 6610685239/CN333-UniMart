@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
-import 'product_detail_screen.dart';
 import '../pages/home_page.dart';
 
 // home_screen.dart ทำหน้าที่เป็น bridge ไปหน้า HomePage ของเรา
@@ -44,7 +43,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Redirect ไป HomePage ทันทีโดยไม่มี animation กระตุก
-    return const HomePage();
+    return HomePage(
+      products: products,
+      isLoading: isLoading,
+      onRetry: _fetchProducts,
+      currentUserId: widget.currentUserId,
+    );
   }
 }

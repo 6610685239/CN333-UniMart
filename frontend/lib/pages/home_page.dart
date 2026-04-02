@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'favourite_manager.dart';
 import 'favourited_page.dart';
+import '../screens/filter_sheet.dart';
+import '../screens/add_product_screen.dart';
+import '../screens/chat_list_screen.dart';
+import '../screens/user_profile_screen.dart';
+import '../screens/product_detail_screen.dart';
+import '../models/product.dart';
+import '../config.dart';
 
 // ── Local UI-only models ───────────────────────────────────────────────────────
 
@@ -21,7 +28,18 @@ class _NavItem {
 // ── HomePage ───────────────────────────────────────────────────────────────────
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final List<Product> products;
+  final bool isLoading;
+  final VoidCallback? onRetry;
+  final String currentUserId;
+
+  const HomePage({
+    super.key,
+    required this.products,
+    required this.isLoading,
+    this.onRetry,
+    required this.currentUserId,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -32,6 +50,11 @@ class _HomePageState extends State<HomePage> {
   int _selectedNav   = 0;
   late PageController _bannerController;
 
+  // Filter state
+  List<Product>? _filteredProducts;
+  bool _isFiltered = false;
+  String? _selectedCategory;
+
   // Palette
   static const Color _pink     = Color(0xFFF48FB1);
   static const Color _deepPink = Color(0xFFE91E8C);
@@ -41,14 +64,18 @@ class _HomePageState extends State<HomePage> {
   static const Color _inactive = Color(0xFFB0B8C1);
 
   static const List<_CategoryItem> _categories = [
-    _CategoryItem('Hat',         Icons.hive_outlined,          Color(0xFFE3F2FD)), // Soft Pastel Blue (Replaced Grey)
-    _CategoryItem('Bags',        Icons.shopping_bag_outlined,  Color(0xFFFFF9C4)), // Soft Pastel Yellow
-    _CategoryItem('Clothes',     Icons.dry_cleaning_outlined,  Color(0xFFFFEBEE)), // Soft Pastel Rose
-    _CategoryItem('Shoes',       Icons.hiking_outlined,        Color(0xFFF3E5F5)), // Soft Pastel Lavender (Replaced Grey)
-    _CategoryItem('Accessories', Icons.watch_outlined,         Color(0xFFFFF3E0)), // Soft Pastel Orange/Gold
-    _CategoryItem('Books',       Icons.menu_book_outlined,     Color(0xFFFCE4EC)), // Soft Pastel Pink
-    _CategoryItem('Electronics', Icons.devices_outlined,       Color(0xFFE0F2F1)), // Soft Pastel Mint (Replaced Grey)
-    _CategoryItem('Others',      Icons.category_outlined,      Color(0xFFE8F5E9)), // Soft Pastel Green
+    _CategoryItem('Electronics',     Icons.devices_outlined,       Color(0xFFE0F2F1)),
+    _CategoryItem('Books',           Icons.menu_book_outlined,     Color(0xFFFCE4EC)),
+    _CategoryItem('Clothing',        Icons.dry_cleaning_outlined,  Color(0xFFFFEBEE)),
+    _CategoryItem('Dorm Supplies',   Icons.bed_outlined,           Color(0xFFF3E5F5)),
+    _CategoryItem('Textbooks',       Icons.auto_stories_outlined,  Color(0xFFE3F2FD)),
+    _CategoryItem('Uniforms',        Icons.school_outlined,        Color(0xFFFFF9C4)),
+    _CategoryItem('Gadgets',         Icons.phone_android_outlined, Color(0xFFFFF3E0)),
+    _CategoryItem('Accessories',     Icons.watch_outlined,         Color(0xFFFFEBEE)),
+    _CategoryItem('Stationery',      Icons.edit_outlined,          Color(0xFFE8F5E9)),
+    _CategoryItem('Dorm Essentials', Icons.home_outlined,          Color(0xFFF3E5F5)),
+    _CategoryItem('Sports',          Icons.sports_soccer_outlined, Color(0xFFE3F2FD)),
+    _CategoryItem('Others',          Icons.category_outlined,      Color(0xFFFFF9C4)),
   ];
 
   static const List<_NavItem> _navItems = [
@@ -88,35 +115,58 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgColor,
-      bottomNavigationBar: _buildBottomNav(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    _buildBanner(),
-                    const SizedBox(height: 22),
-                    _buildSectionHeader('Categories', null),
-                    const SizedBox(height: 12),
-                    _buildCategoryRow(),
-                    const SizedBox(height: 26),
-                    _buildSectionHeader('Trending Now 🔥', 'See all'),
-                    const SizedBox(height: 12),
-                    _buildTrendingList(),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+    return SafeArea(
+      child: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  _buildBanner(),
+                  const SizedBox(height: 22),
+                  _buildSectionHeader('Categories', null),
+                  const SizedBox(height: 12),
+                  _buildCategoryRow(),
+                  const SizedBox(height: 26),
+                  _buildSectionHeader('Trending Now 🔥', 'See all'),
+                  const SizedBox(height: 12),
+                  _buildTrendingList(),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── FILTER SHEET ──────────────────────────────────────────────
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (_, controller) => FilterSheet(
+          onFilterApplied: (products, totalCount) {
+            setState(() {
+              if (products != null) {
+                _filteredProducts = products;
+                _isFiltered = true;
+              } else {
+                _filteredProducts = null;
+                _isFiltered = false;
+              }
+            });
+          },
         ),
       ),
     );
@@ -151,6 +201,22 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(width: 10),
+          // Filter button
+          GestureDetector(
+            onTap: () => _showFilterSheet(context),
+            child: Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: _isFiltered ? _pink.withOpacity(0.18) : _bgColor,
+                borderRadius: BorderRadius.circular(12)),
+              child: Icon(
+                Icons.tune_rounded,
+                size: 22,
+                color: _isFiltered ? _deepPink : _textDark,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Stack(
             children: [
               Container(
@@ -289,8 +355,17 @@ class _HomePageState extends State<HomePage> {
         itemCount: _categories.length,
         itemBuilder: (_, index) {
           final cat = _categories[index];
+          final isSelected = _selectedCategory == cat.label;
           return GestureDetector(
-            onTap: () {},
+            onTap: () {
+              setState(() {
+                if (_selectedCategory == cat.label) {
+                  _selectedCategory = null; // deselect
+                } else {
+                  _selectedCategory = cat.label;
+                }
+              });
+            },
             child: SizedBox(
               width: 72,
               child: Column(
@@ -298,26 +373,21 @@ class _HomePageState extends State<HomePage> {
                   Container(
                     width: 58, height: 58,
                     decoration: BoxDecoration(
-                      color: cat.color,
+                      color: isSelected ? _deepPink.withOpacity(0.15) : cat.color,
                       shape: BoxShape.circle,
+                      border: isSelected ? Border.all(color: _deepPink, width: 2.5) : null,
                       boxShadow: [BoxShadow(
                         color: cat.color.withOpacity(0.5),
                         blurRadius: 8, offset: const Offset(0, 2))],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(11),
-                      child: Image.asset(
-                        cat.label == 'Clothes'
-                            ? 'assets/images/shirt.png'
-                            : 'assets/images/${cat.label.toLowerCase()}.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            Icon(cat.icon, size: 26, color: Colors.brown.shade400)),
-                    ),
+                    child: Icon(cat.icon, size: 26, color: isSelected ? _deepPink : Colors.brown.shade400),
                   ),
                   const SizedBox(height: 6),
                   Text(cat.label,
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _textMid),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected ? _deepPink : _textMid),
                     textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
@@ -330,24 +400,108 @@ class _HomePageState extends State<HomePage> {
 
   // ── TRENDING LIST ────────────────────────────────────────────
   Widget _buildTrendingList() {
+    // Loading state
+    if (widget.isLoading) {
+      return const SizedBox(
+        height: 268,
+        child: Center(
+          child: CircularProgressIndicator(color: _deepPink),
+        ),
+      );
+    }
+
+    // Apply category filter
+    final displayProducts = _selectedCategory != null
+        ? widget.products.where((p) => p.categoryName == _selectedCategory).toList()
+        : widget.products;
+
+    // Empty / error state
+    if (displayProducts.isEmpty) {
+      return SizedBox(
+        height: 268,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.storefront_outlined, size: 48, color: _textMid),
+              const SizedBox(height: 12),
+              Text(
+                _selectedCategory != null ? 'ไม่พบสินค้าในหมวด $_selectedCategory' : 'ไม่พบสินค้า',
+                style: TextStyle(fontSize: 14, color: _textMid, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              if (_selectedCategory != null)
+                TextButton(
+                  onPressed: () => setState(() => _selectedCategory = null),
+                  child: Text('ดูทั้งหมด', style: TextStyle(color: _deepPink, fontWeight: FontWeight.w700)),
+                )
+              else if (widget.onRetry != null)
+                ElevatedButton.icon(
+                  onPressed: widget.onRetry,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('ลองใหม่'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _deepPink,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 268,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: kAllProducts.length,
-        itemBuilder: (_, i) => _buildProductCard(kAllProducts[i]),
+        itemCount: displayProducts.length,
+        itemBuilder: (_, i) => _buildProductCard(displayProducts[i]),
       ),
     );
   }
 
   // ── PRODUCT CARD ─────────────────────────────────────────────
-  Widget _buildProductCard(ProductItem item) {
+  Widget _buildProductCard(Product product) {
     final fav     = FavouriteManager.instance;
-    final isLiked = fav.isFavourited(item.id);
-    final count   = fav.getCount(item.id);
+    final productIdStr = product.id.toString();
+    final isLiked = fav.isFavourited(productIdStr);
+    final count   = fav.getCount(productIdStr);
 
-    return Container(
+    // Build image widget — use network URL if available
+    Widget imageWidget;
+    if (product.images.isNotEmpty) {
+      final imgPath = product.images.first;
+      final imageUrl = imgPath.startsWith('http')
+          ? imgPath
+          : '${AppConfig.uploadsUrl}/$imgPath';
+      imageWidget = Image.network(
+        imageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Center(
+          child: Icon(Icons.image_not_supported_outlined,
+            size: 40, color: Colors.grey.shade300)),
+      );
+    } else {
+      imageWidget = Center(
+        child: Icon(Icons.image_not_supported_outlined,
+          size: 40, color: Colors.grey.shade300));
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductDetailScreen(
+              product: product,
+              currentUserId: widget.currentUserId,
+            ),
+          ),
+        );
+      },
+      child: Container(
       width: 160,
       margin: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
@@ -367,10 +521,7 @@ class _HomePageState extends State<HomePage> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                 child: Container(
                   height: 120, width: double.infinity, color: Colors.white,
-                  child: Image.asset(item.image, fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Center(
-                      child: Icon(Icons.image_not_supported_outlined,
-                        size: 40, color: Colors.grey.shade300))),
+                  child: imageWidget,
                 ),
               ),
               Positioned(top: 8, left: 8,
@@ -381,7 +532,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [BoxShadow(
                       color: Colors.black.withOpacity(0.07), blurRadius: 4)]),
-                  child: Text(item.category,
+                  child: Text(product.categoryName,
                     style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: _textMid)),
                 )),
             ],
@@ -394,11 +545,11 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name, style: const TextStyle(
+                  Text(product.title, style: const TextStyle(
                     fontWeight: FontWeight.w800, fontSize: 13, color: _textDark),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
-                  Text(item.desc,
+                  Text(product.description,
                     style: TextStyle(fontSize: 9, color: _textMid, height: 1.3),
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                   const Spacer(),
@@ -415,27 +566,28 @@ class _HomePageState extends State<HomePage> {
                             Text('ราคาเริ่มต้น', style: TextStyle(
                               fontSize: 8, color: _textMid, fontWeight: FontWeight.w500)),
                             const SizedBox(height: 1),
-                            Text(item.salePrice, style: const TextStyle(
+                            Text('฿${product.price.toStringAsFixed(0)}', style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w800, color: _textDark)),
                           ],
                         ),
                       ),
                       // ราคาเช่า
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('ราคาเช่า', style: TextStyle(
-                              fontSize: 8, color: _textMid, fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 1),
-                            Text(item.rentPrice, style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w800, color: _textDark)),
-                          ],
+                      if (product.rentPrice > 0)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('ราคาเช่า', style: TextStyle(
+                                fontSize: 8, color: _textMid, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 1),
+                              Text('฿${product.rentPrice.toStringAsFixed(0)}', style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w800, color: _textDark)),
+                            ],
+                          ),
                         ),
-                      ),
                       // Heart + count
                       GestureDetector(
-                        onTap: () => fav.toggle(item.id),
+                        onTap: () => fav.toggle(productIdStr, product: product),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -469,6 +621,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -493,13 +646,43 @@ class _HomePageState extends State<HomePage> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  if (_navItems[index].label == 'Favourited') {
+                  final label = _navItems[index].label;
+                  if (label == 'Favourited') {
                     setState(() => _selectedNav = index);
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const FavouritedPage()),
                     ).then((_) {
-                      // Reset back to Home tab when returning
+                      if (mounted) setState(() => _selectedNav = 0);
+                    });
+                  } else if (label == 'Sell') {
+                    setState(() => _selectedNav = index);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddProductScreen(userId: widget.currentUserId),
+                      ),
+                    ).then((_) {
+                      if (mounted) setState(() => _selectedNav = 0);
+                    });
+                  } else if (label == 'Chat') {
+                    setState(() => _selectedNav = index);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatListScreen(userId: widget.currentUserId),
+                      ),
+                    ).then((_) {
+                      if (mounted) setState(() => _selectedNav = 0);
+                    });
+                  } else if (label == 'Profile') {
+                    setState(() => _selectedNav = index);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(userId: widget.currentUserId),
+                      ),
+                    ).then((_) {
                       if (mounted) setState(() => _selectedNav = 0);
                     });
                   } else {

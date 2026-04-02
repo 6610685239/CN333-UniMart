@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -36,7 +37,18 @@ model users {
   created_at      DateTime? @default(now()) @db.Timestamptz(6)
   updated_at      DateTime? @default(now()) @db.Timestamptz(6)
 
-  products Product[]
+  // Iteration 2 — new fields
+  password_hash   String?
+  tu_status       String?
+  dormitory_zone  String?
+  avatar          String?
+
+  // Relations
+  products           Product[]
+  buyerTransactions  Transaction[] @relation("BuyerTransactions")
+  sellerTransactions Transaction[] @relation("SellerTransactions")
+  reviewsGiven       Review[]      @relation("ReviewsGiven")
+  reviewsReceived    Review[]      @relation("ReviewsReceived")
 
   @@index([username], map: "idx_users_username")
 }
@@ -60,12 +72,73 @@ model Product {
   currentRenterId String?
   rentDueDate     DateTime?
 
-  owner    users     @relation(fields: [ownerId], references: [id])
-  category Category? @relation(fields: [categoryId], references: [id])
+  // Iteration 2 — new field
+  meetingPointId  Int?
+
+  owner        users         @relation(fields: [ownerId], references: [id])
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  meetingPoint MeetingPoint? @relation(fields: [meetingPointId], references: [id])
+  transactions Transaction[]
 }
 
 model Category {
   id       Int       @id @default(autoincrement())
   name     String    @unique // เช่น 'Textbooks', 'Uniforms', 'Gadgets'
   products Product[]
+}
+
+
+// ============================================
+// Iteration 2 — New Models
+// ============================================
+
+model Transaction {
+  id           Int       @id @default(autoincrement())
+  buyerId      String    @db.Uuid
+  sellerId     String    @db.Uuid
+  productId    Int
+  type         String    // SALE, RENT
+  status       String    @default("PENDING") // PENDING, PROCESSING, SHIPPING, COMPLETED, CANCELED
+  price        Int
+  meetingPoint String?
+  canceledBy   String?   @db.Uuid
+  cancelReason String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt
+
+  buyer   users   @relation("BuyerTransactions", fields: [buyerId], references: [id])
+  seller  users   @relation("SellerTransactions", fields: [sellerId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  reviews Review[]
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([productId])
+  @@index([status])
+}
+
+model Review {
+  id            Int      @id @default(autoincrement())
+  transactionId Int
+  reviewerId    String   @db.Uuid
+  revieweeId    String   @db.Uuid
+  rating        Int      // 1-5
+  comment       String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  reviewer    users       @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewee    users       @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+
+  @@unique([transactionId, reviewerId])
+  @@index([revieweeId])
+}
+
+model MeetingPoint {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  zone     String?
+  products Product[]
+
+  @@map("meeting_points")
 }
