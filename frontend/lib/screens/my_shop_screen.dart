@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
+import '../config.dart';
 import 'add_product_screen.dart';
 import 'product_detail_screen.dart';
+import 'transaction_list_screen.dart';
 
 class MyShopScreen extends StatefulWidget {
   const MyShopScreen({super.key, required this.currentUserId});
@@ -61,6 +63,20 @@ class _MyShopScreenState extends State<MyShopScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined, color: Colors.black),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TransactionListScreen(userId: widget.currentUserId),
+                ),
+              );
+            },
+            tooltip: 'ธุรกรรม',
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -101,7 +117,7 @@ class _MyShopScreenState extends State<MyShopScreen> {
   // ⭐ ฟังก์ชันสร้างการ์ดสินค้า (วางไว้ล่างสุดของคลาส _MyShopScreenState) ⭐
   Widget _buildProductCard(Product product) {
     String? firstImage = product.images.isNotEmpty
-        ? 'http://10.0.2.2:3000/uploads/${product.images[0]}'
+        ? '${AppConfig.uploadsUrl}/${product.images[0]}'
         : null;
 
     // เช็คว่าเป็นของเช่าหรือไม่

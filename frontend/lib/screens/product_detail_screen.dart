@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
+import '../services/chat_service.dart';
+import '../services/transaction_service.dart';
+import '../config.dart';
 import 'edit_product_screen.dart';
+import 'chat_room_screen.dart';
+import 'user_profile_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -93,6 +98,87 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
+  /// ซื้อ/เช่าสินค้า — เรียก TransactionService.createTransaction
+  Future<void> _buyOrRent() async {
+    final type = _product.type == 'RENT' ? 'RENT' : 'SALE';
+    final actionLabel = _product.type == 'RENT' ? 'เช่า' : 'ซื้อ';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('ยืนยันการ$actionLabel'),
+        content: Text('คุณต้องการ$actionLabelสินค้า "${_product.title}" ใช่หรือไม่?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('ยืนยัน$actionLabel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final result = await TransactionService.createTransaction(
+      widget.currentUserId,
+      _product.id,
+      type,
+    );
+
+    if (!mounted) return;
+
+    if (result['success'] == false) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'ไม่สามารถสร้างธุรกรรมได้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('สร้างรายการ$actionLabelสำเร็จ รอผู้ขายยืนยัน'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  /// เปิดแชทกับผู้ขาย — เรียก ChatService.createOrOpenRoom แล้วนำทางไป ChatRoomScreen
+  Future<void> _openChat() async {
+    final result = await ChatService.createOrOpenRoom(
+      widget.currentUserId,
+      _product.ownerId,
+      _product.id,
+    );
+
+    if (!mounted) return;
+
+    if (result['id'] != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatRoomScreen(
+            roomId: result['id'],
+            currentUserId: widget.currentUserId,
+            otherUserName: _product.ownerName,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'ไม่สามารถเปิดแชทได้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'RESERVED':
@@ -172,27 +258,48 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     // ปุ่มทักแชท (Chat Button)
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          // 🟢 ตรงนี้คือ Action เมื่อกดปุ่ม
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("ฟีเจอร์แชทกำลังพัฒนา..."),
-                            ),
-                          );
-                        },
+                        onPressed: () => _openChat(),
                         icon: const Icon(Icons.chat_bubble_outline),
-                        label: Text(
-                          _product.type == 'RENT'
-                              ? "ทักแชท / สนใจเช่า"
-                              : "ทักแชท / สนใจสินค้า",
-                          style: const TextStyle(
-                            fontSize: 16,
+                        label: const Text(
+                          "ทักแชท",
+                          style: TextStyle(
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black, // สีปุ่มดำ
-                          foregroundColor: Colors.white, // ตัวหนังสือขาว
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // ปุ่มซื้อ/เช่า (Buy/Rent Button)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _product.status == 'AVAILABLE'
+                            ? () => _buyOrRent()
+                            : null,
+                        icon: Icon(_product.type == 'RENT'
+                            ? Icons.access_time
+                            : Icons.shopping_cart),
+                        label: Text(
+                          _product.type == 'RENT' ? "เช่า" : "ซื้อ",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF6F61),
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey[300],
+                          disabledForegroundColor: Colors.grey[500],
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -261,7 +368,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             onPageChanged: (index) =>
                                 setState(() => _currentImageIndex = index),
                             itemBuilder: (context, index) => Image.network(
-                              'http://10.0.2.2:3000/uploads/${_product.images[index]}',
+                              '${AppConfig.uploadsUrl}/${_product.images[index]}',
                               fit: BoxFit
                                   .contain, // ปรับเป็น contain ให้เห็นทั้งรูป
                             ),
@@ -438,25 +545,40 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "ผู้ขาย:",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey[600],
+                      GestureDetector(
+                        onTap: () {
+                          if (!isOwner) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => UserProfileScreen(
+                                  userId: _product.ownerId,
+                                  displayName: _product.ownerName,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "ผู้ขาย:",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[600],
+                              ),
                             ),
-                          ),
-                          Text(
-                            _product.ownerName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                            Text(
+                              _product.ownerName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),

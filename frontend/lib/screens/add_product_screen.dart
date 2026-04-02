@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import '../services/api_service.dart';
+import '../services/filter_service.dart';
+import '../config.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:image_cropper/image_cropper.dart';
 
@@ -31,19 +34,24 @@ class _AddProductScreenState extends State<AddProductScreen> {
   String? _selectedCategoryId;
 
   List<dynamic> _categories = [];
-  List<File> _selectedImages = [];
+  List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
+
+  // Meeting points
+  List<Map<String, dynamic>> _meetingPoints = [];
+  String? _selectedMeetingPointId;
 
   @override
   void initState() {
     super.initState();
     _fetchCategories();
+    _fetchMeetingPoints();
   }
 
   Future<void> _fetchCategories() async {
     try {
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:3000/api/categories'),
+        Uri.parse('${AppConfig.baseUrl}/categories'),
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -61,6 +69,19 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
+  Future<void> _fetchMeetingPoints() async {
+    try {
+      final points = await FilterService.getMeetingPoints();
+      if (mounted) {
+        setState(() {
+          _meetingPoints = points;
+        });
+      }
+    } catch (e) {
+      print("Error loading meeting points: $e");
+    }
+  }
+
   Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
@@ -69,49 +90,45 @@ class _AddProductScreenState extends State<AddProductScreen> {
         for (var img in images) {
           if (_selectedImages.length >= 5) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("ใส่รูปได้สูงสุด 5 รูปเท่านั้นครับ"),
-              ),
+              const SnackBar(content: Text("ใส่รูปได้สูงสุด 5 รูปเท่านั้นครับ")),
             );
             break;
           }
 
-          // ⭐ จุดที่แก้ไข: ย้าย aspectRatioPresets เข้ามาไว้ใน uiSettings
-          CroppedFile? croppedFile = await ImageCropper().cropImage(
-            sourcePath: img.path,
-            uiSettings: [
-              AndroidUiSettings(
-                toolbarTitle: 'ปรับขนาดรูปภาพ',
-                toolbarColor: Colors.black,
-                toolbarWidgetColor: Colors.white,
-                initAspectRatio:
-                    CropAspectRatioPreset.square, // เริ่มต้นด้วยสัดส่วน 1:1
-                lockAspectRatio: false, // อนุญาตให้ผู้ใช้เปลี่ยนสัดส่วนเองได้
-                // ตั้งค่าสัดส่วนสำหรับ Android
-                aspectRatioPresets: [
-                  CropAspectRatioPreset.square,
-                  CropAspectRatioPreset.ratio4x3,
-                  CropAspectRatioPreset.original,
-                ],
-              ),
-              IOSUiSettings(
-                title: 'ปรับขนาดรูปภาพ',
-                cancelButtonTitle: 'ยกเลิก',
-                doneButtonTitle: 'เสร็จสิ้น',
-                // ตั้งค่าสัดส่วนสำหรับ iOS
-                aspectRatioPresets: [
-                  CropAspectRatioPreset.square,
-                  CropAspectRatioPreset.ratio4x3,
-                  CropAspectRatioPreset.original,
-                ],
-              ),
-            ],
-          );
-
-          if (croppedFile != null) {
-            setState(() {
-              _selectedImages.add(File(croppedFile.path));
-            });
+          // บน web ข้าม cropper เพราะ image_cropper ไม่รองรับ web
+          if (kIsWeb) {
+            setState(() => _selectedImages.add(img));
+          } else {
+            CroppedFile? croppedFile = await ImageCropper().cropImage(
+              sourcePath: img.path,
+              uiSettings: [
+                AndroidUiSettings(
+                  toolbarTitle: 'ปรับขนาดรูปภาพ',
+                  toolbarColor: Colors.black,
+                  toolbarWidgetColor: Colors.white,
+                  initAspectRatio: CropAspectRatioPreset.square,
+                  lockAspectRatio: false,
+                  aspectRatioPresets: [
+                    CropAspectRatioPreset.square,
+                    CropAspectRatioPreset.ratio4x3,
+                    CropAspectRatioPreset.original,
+                  ],
+                ),
+                IOSUiSettings(
+                  title: 'ปรับขนาดรูปภาพ',
+                  cancelButtonTitle: 'ยกเลิก',
+                  doneButtonTitle: 'เสร็จสิ้น',
+                  aspectRatioPresets: [
+                    CropAspectRatioPreset.square,
+                    CropAspectRatioPreset.ratio4x3,
+                    CropAspectRatioPreset.original,
+                  ],
+                ),
+              ],
+            );
+            if (croppedFile != null) {
+              setState(() => _selectedImages.add(XFile(croppedFile.path)));
+            }
           }
         }
       }
@@ -147,7 +164,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     try {
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://10.0.2.2:3000/api/products'),
+        Uri.parse('${AppConfig.baseUrl}/products'),
       );
 
       request.fields['title'] = _titleCtrl.text;
@@ -167,9 +184,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
       request.fields['location'] = _locationCtrl.text;
       request.fields['ownerId'] = widget.userId.toString();
 
+      if (_selectedMeetingPointId != null) {
+        request.fields['meetingPointId'] = _selectedMeetingPointId!;
+      }
+
       for (var file in _selectedImages) {
+        final bytes = await file.readAsBytes();
         request.files.add(
-          await http.MultipartFile.fromPath('images', file.path),
+          http.MultipartFile.fromBytes('images', bytes, filename: file.name),
         );
       }
 
@@ -307,11 +329,23 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
-                            child: Image.file(
-                              file,
-                              width: 120,
-                              height: 160,
-                              fit: BoxFit.cover,
+                            child: FutureBuilder<Uint8List>(
+                              future: file.readAsBytes(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  return Image.memory(
+                                    snapshot.data!,
+                                    width: 120,
+                                    height: 160,
+                                    fit: BoxFit.cover,
+                                  );
+                                }
+                                return Container(
+                                  width: 120, height: 160,
+                                  color: Colors.grey[200],
+                                  child: const Center(child: CircularProgressIndicator()),
+                                );
+                              },
                             ),
                           ),
                           Positioned(
@@ -492,26 +526,94 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       ),
                     ),
 
-                    // สถานที่
+                    // สถานที่ (ใช้ dropdown จาก meeting points)
                     _buildFieldContainer(
                       label: "Location",
-                      child: TextFormField(
-                        controller: _locationCtrl,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'e.g. SC3, Gym 7, Dormitory',
-                          hintStyle: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButtonFormField<String>(
+                          value: _locationCtrl.text.isEmpty ? null : _locationCtrl.text,
+                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            icon: Icon(Icons.location_on_outlined, color: Colors.grey),
                           ),
-                          icon: Icon(
-                            Icons.location_on_outlined,
-                            color: Colors.grey,
+                          isExpanded: true,
+                          hint: const Text('เลือกสถานที่', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                          items: [
+                            ..._meetingPoints.map((mp) {
+                              final name = mp['name'] ?? '';
+                              final zone = mp['zone'] ?? '';
+                              return DropdownMenuItem<String>(
+                                value: name,
+                                child: Text('$name ($zone)', style: const TextStyle(fontSize: 14)),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) => setState(() => _locationCtrl.text = val ?? ''),
+                          validator: (v) => (v == null || v.isEmpty) ? 'กรุณาเลือกสถานที่' : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // จุดนัดพบ (Meeting Point)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Meeting Point",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
-                        validator: (v) =>
-                            v!.isEmpty ? 'กรุณาระบุสถานที่' : null,
-                      ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: Colors.grey[400]!),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: _meetingPoints.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 14),
+                                  child: Text(
+                                    "กำลังโหลด...",
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                )
+                              : DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _selectedMeetingPointId,
+                                    isExpanded: true,
+                                    hint: const Text(
+                                      'เลือกจุดนัดพบ',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                    ),
+                                    items: _meetingPoints.map((mp) {
+                                      return DropdownMenuItem<String>(
+                                        value: mp['id'].toString(),
+                                        child: Text(
+                                          mp['name'] ?? '',
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) => setState(
+                                      () => _selectedMeetingPointId = val,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
 

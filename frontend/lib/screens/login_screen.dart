@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../pages/favourite_manager.dart';
 import 'register_screen.dart';
-import 'home_screen.dart';
 import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,30 +25,29 @@ class _LoginScreenState extends State<LoginScreen> {
   final Color _primaryColor = const Color(0xFFFF6F61); // Coral Orange
   final Color _secondaryColor = const Color(0xFFF7C59F); // Peach
 
-  // Login Logic
+  // Login Logic — verify via TU API, then handle action
   void _handleLogin() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
     if (username.isEmpty || password.isEmpty) {
-      _showSnackBar('Please fill in all fields', Colors.orange);
+      _showSnackBar('กรุณากรอกข้อมูลให้ครบ', Colors.orange);
       return;
     }
 
     setState(() => _isLoading = true);
 
-    // Call API
-    final result = await ApiService.verifyUser(username, password);
+    // Call AuthService.verify (TU API)
+    final result = await AuthService.verify(username, password);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // Handle Result
     if (result['success'] == true) {
       final action = result['action'];
 
       if (action == 'GO_TO_REGISTER') {
-        // Navigate to Register Screen
+        // Navigate to Register Screen with TU profile
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -56,35 +55,174 @@ class _LoginScreenState extends State<LoginScreen> {
                 RegisterScreen(tuProfile: result['tuProfile']),
           ),
         );
-      } else if (action == 'LOGIN_SUCCESS') {
-        // Login Success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login Successful!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // String safeUserId = result['user']['id'].toString();
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                MainScreen(user: result['user']),
-          ),
-        );
+      } else if (action == 'LOGIN_EXISTS') {
+        // User already registered — ask for UniMart password
+        _showUnimartPasswordDialog(username);
       }
     } else {
-      // Error
-      _showSnackBar(result['message'] ?? 'An error occurred', Colors.red);
+      // Error from verify (TU API failure, wrong credentials, 503, etc.)
+      final message = result['message'] ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+      _showSnackBar(message, Colors.red);
     }
   }
 
+  /// Show dialog to enter UniMart password for existing users
+  void _showUnimartPasswordDialog(String username) {
+    final unimartPasswordController = TextEditingController();
+    bool isDialogPasswordVisible = false;
+    bool isDialogLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'เข้าสู่ระบบ UniMart',
+                style: TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'กรุณากรอกรหัสผ่าน UniMart ของคุณ',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: TextField(
+                      controller: unimartPasswordController,
+                      obscureText: !isDialogPasswordVisible,
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.lock_outline_rounded,
+                          color: Colors.grey[500],
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            isDialogPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: Colors.grey[400],
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              isDialogPasswordVisible =
+                                  !isDialogPasswordVisible;
+                            });
+                          },
+                        ),
+                        hintText: 'รหัสผ่าน UniMart',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDialogLoading
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text('ยกเลิก'),
+                ),
+                ElevatedButton(
+                  onPressed: isDialogLoading
+                      ? null
+                      : () async {
+                          final unimartPassword =
+                              unimartPasswordController.text.trim();
+                          if (unimartPassword.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('กรุณากรอกรหัสผ่าน'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isDialogLoading = true);
+
+                          final loginResult = await AuthService.login(
+                            username,
+                            unimartPassword,
+                          );
+
+                          if (!mounted) return;
+                          setDialogState(() => isDialogLoading = false);
+
+                          if (loginResult['success'] == true) {
+                            // Init FavouriteManager with logged-in user
+                            await FavouriteManager.instance.init();
+                            if (!mounted) return;
+                            Navigator.pop(dialogContext); // Close dialog
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    MainScreen(user: loginResult['user']),
+                              ),
+                            );
+                          } else {
+                            final msg = loginResult['message'] ??
+                                'รหัสผ่านไม่ถูกต้อง';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(msg),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  child: isDialogLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'เข้าสู่ระบบ',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
   }
 
   @override
@@ -108,10 +246,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       constraints: const BoxConstraints(maxHeight: 120),
                       child: Image.asset(
-                        'assets/images/logo.png', // ✅ Load logo.png
+                        'assets/images/logo.png',
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) {
-                          // Fallback icon if image is missing
                           return Icon(
                             Icons.shopping_bag_outlined,
                             size: 100,
@@ -137,21 +274,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     _buildCustomTextField(
                       controller: _usernameController,
                       icon: Icons.person_outline_rounded,
-                      hintText: 'Username',
+                      hintText: 'รหัสนักศึกษา',
                     ),
                     const SizedBox(height: 20),
 
-                    // --- Password Field ---
+                    // --- Password Field (TU reg.tu.ac.th password) ---
                     _buildCustomTextField(
                       controller: _passwordController,
                       icon: Icons.lock_outline_rounded,
-                      hintText: 'Password',
+                      hintText: 'รหัสผ่าน reg.tu.ac.th',
                       isPassword: true,
                     ),
 
                     const SizedBox(height: 10),
 
-                    // --- Remember Me & Forgot Password ---
+                    // --- Remember Me ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -167,7 +304,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   setState(() => _rememberMe = value!),
                             ),
                             const Text(
-                              'Remember Me',
+                              'จดจำฉัน',
                               style: TextStyle(
                                 color: Colors.grey,
                                 fontSize: 13,
@@ -212,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.white,
                               )
                             : const Text(
-                                'LOGIN',
+                                'เข้าสู่ระบบ',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
