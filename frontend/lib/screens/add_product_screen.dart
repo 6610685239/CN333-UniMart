@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/filter_service.dart';
 import '../config.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'my_shop_screen.dart';
 import 'package:image_cropper/image_cropper.dart';
 
 class AddProductScreen extends StatefulWidget {
@@ -200,10 +201,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         if (mounted) {
-          Navigator.pop(context, true);
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text("ลงขายสำเร็จ!")));
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MyShopScreen(currentUserId: widget.userId),
+            ),
+          );
         }
       } else {
         throw Exception("Server Error: ${response.body}");
@@ -526,94 +532,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       ),
                     ),
 
-                    // สถานที่ (ใช้ dropdown จาก meeting points)
+                    // สถานที่ / จุดนัดพบ (พิมพ์เอง)
                     _buildFieldContainer(
-                      label: "Location",
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButtonFormField<String>(
-                          value: _locationCtrl.text.isEmpty ? null : _locationCtrl.text,
-                          style: const TextStyle(fontSize: 14, color: Colors.black87),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            icon: Icon(Icons.location_on_outlined, color: Colors.grey),
-                          ),
-                          isExpanded: true,
-                          hint: const Text('เลือกสถานที่', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                          items: [
-                            ..._meetingPoints.map((mp) {
-                              final name = mp['name'] ?? '';
-                              final zone = mp['zone'] ?? '';
-                              return DropdownMenuItem<String>(
-                                value: name,
-                                child: Text('$name ($zone)', style: const TextStyle(fontSize: 14)),
-                              );
-                            }),
-                          ],
-                          onChanged: (val) => setState(() => _locationCtrl.text = val ?? ''),
-                          validator: (v) => (v == null || v.isEmpty) ? 'กรุณาเลือกสถานที่' : null,
+                      label: "Meeting Point",
+                      child: TextFormField(
+                        controller: _locationCtrl,
+                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          icon: Icon(Icons.location_on_outlined, color: Colors.grey),
+                          hintText: 'เช่น หน้าลิฟต์ รพ., ตรงข้ามเซเว่นอินเตอร์',
+                          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
                         ),
+                        validator: (v) => (v == null || v.isEmpty) ? 'กรุณากรอกสถานที่นัดพบ' : null,
                       ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // จุดนัดพบ (Meeting Point)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Meeting Point",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(color: Colors.grey[400]!),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: _meetingPoints.isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 14),
-                                  child: Text(
-                                    "กำลังโหลด...",
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                )
-                              : DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedMeetingPointId,
-                                    isExpanded: true,
-                                    hint: const Text(
-                                      'เลือกจุดนัดพบ',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.keyboard_arrow_down_rounded,
-                                    ),
-                                    items: _meetingPoints.map((mp) {
-                                      return DropdownMenuItem<String>(
-                                        value: mp['id'].toString(),
-                                        child: Text(
-                                          mp['name'] ?? '',
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (val) => setState(
-                                      () => _selectedMeetingPointId = val,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ],
                     ),
                     const SizedBox(height: 20),
 
