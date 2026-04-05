@@ -47,7 +47,7 @@ class _FavouritedPageState extends State<FavouritedPage> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 0.72,
+                childAspectRatio: 0.62,
               ),
               itemCount: favourited.length,
               itemBuilder: (_, i) => _buildFavCard(favourited[i]),
@@ -78,14 +78,13 @@ class _FavouritedPageState extends State<FavouritedPage> {
     );
   }
 
-  // ── FAVOURITE CARD (Figma style: image top, info below) ──────
+  // ── FAVOURITE CARD ──────
   Widget _buildFavCard(Product item) {
     final fav     = FavouriteManager.instance;
     final productIdStr = item.id.toString();
     final isLiked = fav.isFavourited(productIdStr);
     final count   = fav.getCount(productIdStr);
 
-    // Build image widget — use network URL if available
     Widget imageWidget;
     if (item.images.isNotEmpty) {
       final imgPath = item.images.first;
@@ -94,7 +93,7 @@ class _FavouritedPageState extends State<FavouritedPage> {
           : '${AppConfig.uploadsUrl}/$imgPath';
       imageWidget = Image.network(
         imageUrl,
-        fit: BoxFit.contain,
+        fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Center(
           child: Icon(Icons.image_not_supported_outlined,
             size: 36, color: Colors.grey.shade300)),
@@ -108,76 +107,87 @@ class _FavouritedPageState extends State<FavouritedPage> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 12, offset: const Offset(0, 3))],
+          color: Colors.black.withOpacity(0.07),
+          blurRadius: 14, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Product image ─────────────────────────────────
-          Expanded(
-            flex: 5,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Container(
-                width: double.infinity,
-                color: Colors.white,
-                child: imageWidget,
+          // Image area
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                child: Container(
+                  height: 120, width: double.infinity, color: Colors.white,
+                  child: imageWidget,
+                ),
               ),
-            ),
+              Positioned(top: 8, left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(
+                      color: Colors.black.withOpacity(0.07), blurRadius: 4)]),
+                  child: Text(item.categoryName,
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: _textMid)),
+                )),
+            ],
           ),
 
-          // ── Info ──────────────────────────────────────────
+          // Info area
           Expanded(
-            flex: 4,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name
-                  Text(item.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 13, color: _textDark),
+                  Text(item.title, style: const TextStyle(
+                    fontWeight: FontWeight.w800, fontSize: 13, color: _textDark),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
-                  // Description
                   Text(item.description,
                     style: TextStyle(fontSize: 9, color: _textMid, height: 1.3),
                     maxLines: 2, overflow: TextOverflow.ellipsis),
-
                   const Spacer(),
 
-                  // ── Prices + heart ────────────────────────
+                  // Price + heart row
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       // ราคาเริ่มต้น
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('ราคาเริ่มต้น', style: TextStyle(
-                            fontSize: 7.5, color: _textMid, fontWeight: FontWeight.w500)),
-                          Text('฿${item.price.toStringAsFixed(0)}', style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w800, color: _textDark)),
-                        ],
-                      ),
-                      const SizedBox(width: 8),
+                      if (item.type != 'RENT')
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('ราคาเริ่มต้น', style: TextStyle(
+                                fontSize: 8, color: _textMid, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 1),
+                              Text('฿${item.price.toStringAsFixed(0)}', style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w800, color: _textDark)),
+                            ],
+                          ),
+                        ),
                       // ราคาเช่า
                       if (item.rentPrice > 0)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('ราคาเช่า', style: TextStyle(
-                              fontSize: 7.5, color: _textMid, fontWeight: FontWeight.w500)),
-                            Text('฿${item.rentPrice.toStringAsFixed(0)}', style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w800, color: _textDark)),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('ราคาเช่า', style: TextStyle(
+                                fontSize: 8, color: _textMid, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 1),
+                              Text('฿${item.rentPrice.toStringAsFixed(0)}', style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w800, color: _textDark)),
+                            ],
+                          ),
                         ),
-                      const Spacer(),
-                      // Heart button + count
+                      // Heart + count
                       GestureDetector(
                         onTap: () => fav.toggle(productIdStr, product: item),
                         child: Column(
@@ -188,7 +198,7 @@ class _FavouritedPageState extends State<FavouritedPage> {
                               width: 30, height: 30,
                               decoration: BoxDecoration(
                                 color: isLiked
-                                    ? _pink.withOpacity(0.15)
+                                    ? _pink.withOpacity(0.18)
                                     : const Color(0xFFFFEEF5),
                                 shape: BoxShape.circle),
                               child: Icon(

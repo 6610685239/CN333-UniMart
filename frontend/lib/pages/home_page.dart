@@ -216,20 +216,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Stack(
-            children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: _bgColor, borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.shopping_bag_outlined, size: 22, color: _textDark),
-              ),
-              Positioned(right: 8, top: 8,
-                child: Container(width: 9, height: 9,
-                  decoration: const BoxDecoration(color: _deepPink, shape: BoxShape.circle))),
-            ],
-          ),
         ],
       ),
     );
@@ -559,18 +545,19 @@ class _HomePageState extends State<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       // ราคาเริ่มต้น
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('ราคาเริ่มต้น', style: TextStyle(
-                              fontSize: 8, color: _textMid, fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 1),
-                            Text('฿${product.price.toStringAsFixed(0)}', style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w800, color: _textDark)),
-                          ],
+                      if (product.type != 'RENT')
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('ราคาเริ่มต้น', style: TextStyle(
+                                fontSize: 8, color: _textMid, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 1),
+                              Text('฿${product.price.toStringAsFixed(0)}', style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w800, color: _textDark)),
+                            ],
+                          ),
                         ),
-                      ),
                       // ราคาเช่า
                       if (product.rentPrice > 0)
                         Expanded(

@@ -1,30 +1,39 @@
 const { prisma } = require('../models');
 
 async function createTransaction(buyerId, productId, type) {
-  const product = await prisma.product.findUnique({
-    where: { id: parseInt(productId) }
-  });
+  // Use a transaction to reliably lock the product status
+  return await prisma.$transaction(async (tx) => {
+    const product = await tx.product.findUnique({
+      where: { id: parseInt(productId) }
+    });
 
-  if (!product) {
-    return { error: 'NOT_FOUND' };
-  }
-
-  if (product.status === 'Reserved') {
-    return { error: 'RESERVED' };
-  }
-
-  const transaction = await prisma.transaction.create({
-    data: {
-      buyerId,
-      sellerId: product.ownerId,
-      productId: parseInt(productId),
-      type,
-      status: 'PENDING',
-      price: product.price
+    if (!product) {
+      return { error: 'NOT_FOUND' };
     }
-  });
 
-  return { transaction };
+    if (product.status === 'RESERVED' || product.status === 'SOLD') {
+      return { error: 'RESERVED' };
+    }
+
+    // Set product status to RESERVED so no one else can buy it
+    await tx.product.update({
+      where: { id: parseInt(productId) },
+      data: { status: 'RESERVED' }
+    });
+
+    const transaction = await tx.transaction.create({
+      data: {
+        buyerId,
+        sellerId: product.ownerId,
+        productId: parseInt(productId),
+        type,
+        status: 'PENDING',
+        price: product.price
+      }
+    });
+
+    return { transaction };
+  });
 }
 
 async function confirmTransaction(id) {

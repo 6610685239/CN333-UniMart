@@ -532,19 +532,50 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       ),
                     ),
 
-                    // สถานที่ / จุดนัดพบ (พิมพ์เอง)
+                    // สถานที่ (Dropdown จาก meeting points เพื่อใช้กรองข้อมูล)
                     _buildFieldContainer(
-                      label: "Meeting Point",
+                      label: "Location",
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedMeetingPointId,
+                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            icon: Icon(Icons.map_outlined, color: Colors.grey),
+                          ),
+                          isExpanded: true,
+                          hint: const Text('เลือกโซนสถานที่', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                          items: [
+                            ..._meetingPoints.map((mp) {
+                              final name = mp['name'] ?? '';
+                              final zone = mp['zone'] ?? '';
+                              return DropdownMenuItem<String>(
+                                value: mp['id'].toString(),
+                                child: Text('$name ($zone)', style: const TextStyle(fontSize: 14)),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) => setState(() => _selectedMeetingPointId = val),
+                          validator: (v) => (v == null || v.isEmpty) ? 'กรุณาเลือกสถานที่หลัก' : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // จุดนัดพบ (แบบพิมพ์เอง)
+                    _buildFieldContainer(
+                      label: "Meeting Point (จุดนัดพบ)",
                       child: TextFormField(
                         controller: _locationCtrl,
                         style: const TextStyle(fontSize: 14, color: Colors.black87),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           icon: Icon(Icons.location_on_outlined, color: Colors.grey),
-                          hintText: 'เช่น หน้าลิฟต์ รพ., ตรงข้ามเซเว่นอินเตอร์',
+                          hintText: 'รายละเอียดจุดนัดพบ (เช่น หน้าลิฟต์ รพ., โต๊ะม้าหิน)',
                           hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
                         ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'กรุณากรอกสถานที่นัดพบ' : null,
+                        validator: (v) => (v == null || v.isEmpty) ? 'กรุณาระบุจุดนัดพบ' : null,
                       ),
                     ),
                     const SizedBox(height: 20),

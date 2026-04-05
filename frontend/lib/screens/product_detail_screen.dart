@@ -367,11 +367,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             itemCount: _product.images.length,
                             onPageChanged: (index) =>
                                 setState(() => _currentImageIndex = index),
-                            itemBuilder: (context, index) => Image.network(
-                              '${AppConfig.uploadsUrl}/${_product.images[index]}',
-                              fit: BoxFit
-                                  .contain, // ปรับเป็น contain ให้เห็นทั้งรูป
-                            ),
+                            itemBuilder: (context, index) {
+                              final imageUrl = '${AppConfig.uploadsUrl}/${_product.images[index]}';
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => Scaffold(
+                                        backgroundColor: Colors.black,
+                                        appBar: AppBar(
+                                          backgroundColor: Colors.black,
+                                          iconTheme: const IconThemeData(color: Colors.white),
+                                        ),
+                                        body: Center(
+                                          child: InteractiveViewer(
+                                            minScale: 1.0,
+                                            maxScale: 4.0,
+                                            child: Image.network(imageUrl),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.contain,
+                                ),
+                              );
+                            },
                           )
                         : Container(
                             color: Colors.grey[100],
