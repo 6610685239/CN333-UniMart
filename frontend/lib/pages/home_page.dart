@@ -128,11 +128,11 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 12),
                   _buildBanner(),
                   const SizedBox(height: 22),
-                  _buildSectionHeader('Categories', null),
+                  _buildSectionHeader('Categories', action: 'See all', onActionTap: () => _showFilterSheet(context)),
                   const SizedBox(height: 12),
                   _buildCategoryRow(),
                   const SizedBox(height: 26),
-                  _buildSectionHeader('Trending Now 🔥', 'See all'),
+                  _buildSectionHeader('Trending Now 🔥', action: 'See all', onActionTap: () => _showFilterSheet(context)),
                   const SizedBox(height: 12),
                   _buildTrendingList(),
                   const SizedBox(height: 24),
@@ -320,17 +320,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ── SECTION HEADER ───────────────────────────────────────────
-  Widget _buildSectionHeader(String title, String? action) {
+  Widget _buildSectionHeader(String title, {String? action, VoidCallback? onActionTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800,
+          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, 
             color: _textDark, letterSpacing: -0.3)),
           if (action != null)
             GestureDetector(
-              onTap: () {},
+              onTap: onActionTap ?? () {},
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
