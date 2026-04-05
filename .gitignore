@@ -2,9 +2,6 @@
 .vs/
 */.vs/
 
-# Kiro
-.kiro/
-
 # Node.js
 node_modules/
 backend/.env
