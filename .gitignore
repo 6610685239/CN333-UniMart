@@ -2,11 +2,15 @@
 .vs/
 */.vs/
 
+# Kiro
+.kiro/
+
 # Node.js
 node_modules/
 backend/.env
 
 # Flutter
+frontend/.env
 frontend/build/
 .dart_tool/
 .idea/
