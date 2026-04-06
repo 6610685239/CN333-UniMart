@@ -110,7 +110,7 @@ class ApiService {
   }
 
   Future<List<Category>> getCategories() async {
-    final url = '$baseUrl/api/categories';
+    final url = '$baseUrl/categories';
 
     final response = await http.get(Uri.parse(url));
 

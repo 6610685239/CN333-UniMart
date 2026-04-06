@@ -116,10 +116,13 @@ async function getUserRooms(userId) {
     const isDeleted = isBuyer ? room.deleted_by_buyer : room.deleted_by_seller;
     
     // Check if locked via transaction
-    const transaction = await prisma.transaction.findFirst({
+    let isLocked = false;
+    if (prisma.transaction && typeof prisma.transaction.findFirst === 'function') {
+      const transaction = await prisma.transaction.findFirst({
         where: { productId: room.product_id, buyerId: room.buyer_id, sellerId: room.seller_id }
-    });
-    const isLocked = transaction && (transaction.status === 'COMPLETED' || transaction.status === 'CANCELED');
+      });
+      isLocked = !!transaction && (transaction.status === 'COMPLETED' || transaction.status === 'CANCELED');
+    }
 
     return {
       id: room.id,
@@ -165,15 +168,15 @@ async function getRoomMessages(roomId, limit, offset) {
   }
   if (roomError) throw roomError;
 
+  const safeOffset = typeof offset === 'number' && !Number.isNaN(offset) ? offset : 0;
+  const safeLimit = typeof limit === 'number' && !Number.isNaN(limit) ? limit : 100000;
+
   let query = supabase
     .from('chat_messages')
     .select('id, room_id, sender_id, content, image_url, type, is_read, created_at')
     .eq('room_id', roomId)
-    .order('created_at', { ascending: true });
-
-  if (typeof limit === 'number' && !Number.isNaN(limit)) {
-    query = query.range(offset, offset + limit - 1);
-  }
+    .order('created_at', { ascending: true })
+    .range(safeOffset, safeOffset + safeLimit - 1);
 
   const { data: messages, error: msgError } = await query;
 
