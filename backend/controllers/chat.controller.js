@@ -75,11 +75,16 @@ async function sendMessage(req, res) {
       return res.status(404).json({ success: false, message: 'ไม่พบห้องสนทนา' });
     }
 
-    res.status(201).json(result.message);
+    // Emit via socket BEFORE sending HTTP response
     const io = req.app.get('io');
     if (io) {
+      console.log(`📡 Emitting new_message to room ${roomId}`, result.message.id);
       io.to(roomId).emit('new_message', result.message);
+    } else {
+      console.log('⚠️ io is not available on req.app');
     }
+
+    res.status(201).json(result.message);
 
     // Fire-and-forget notification
     try {
