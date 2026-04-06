@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import '../config.dart';
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
 
@@ -42,13 +43,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     _subscribeToMessages();
   }
 
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadMessages() async {
     setState(() => _isLoading = true);
     try {
@@ -62,16 +56,49 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
-  /// Supabase Realtime subscription placeholder
   void _subscribeToMessages() {
-    // TODO: Replace with actual Supabase Realtime subscription
-    // when Supabase Flutter client is configured.
-    // ChatService.subscribeToMessages(widget.roomId).listen((messages) {
-    //   if (mounted) {
-    //     setState(() => _messages = messages);
-    //     _scrollToBottom();
-    //   }
-    // });
+    // Initialize socket connection
+    final socketUrl = AppConfig.baseUrl.replaceAll('/api', '');
+    _socket = IO.io(socketUrl, <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': false,
+    });
+
+    _socket!.connect();
+
+    _socket!.onConnect((_) {
+      print('Connected to Socket.IO Server');
+      _socket!.emit('join_room', widget.roomId);
+    });
+
+    _socket!.on('new_message', (data) {
+      if (mounted) {
+        setState(() {
+          final newMessage = ChatMessage.fromJson(data);
+          // Check if we already added this temporarily optimistically
+          // The sender might add it twice if we don't deduplicate by tempId, 
+          // but our sendMessage replaces temp messages directly.
+          // Just make sure it's not a duplicate.
+          if (!_messages.any((m) => m.id == newMessage.id)) {
+            _messages.add(newMessage);
+            _scrollToBottom();
+          }
+        });
+      }
+    });
+
+    _socket!.onDisconnect((_) {
+      print('Disconnected from Socket.IO Server');
+    });
+  }
+
+  @override
+  void dispose() {
+    _socket?.disconnect();
+    _socket?.dispose();
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _scrollToBottom() {
