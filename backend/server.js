@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -65,9 +67,6 @@ app.use('/api', createProductRoutes(upload));
 // ==========================================
 // Start Server
 // ==========================================
-const http = require('http');
-const { Server } = require('socket.io');
-
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
