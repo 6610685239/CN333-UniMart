@@ -111,9 +111,23 @@ async function getUserRooms(userId) {
 
     if (countError) throw countError;
 
+    const isBuyer = room.buyer_id === userId;
+    const isPinned = isBuyer ? room.pinned_by_buyer : room.pinned_by_seller;
+    const isDeleted = isBuyer ? room.deleted_by_buyer : room.deleted_by_seller;
+    
+    // Check if locked via transaction
+    const transaction = await prisma.transaction.findFirst({
+        where: { productId: room.product_id, buyerId: room.buyer_id, sellerId: room.seller_id }
+    });
+    const isLocked = transaction && (transaction.status === 'COMPLETED' || transaction.status === 'CANCELED');
+
     return {
       id: room.id,
       productTitle: product ? product.title : null,
+      isBuyer: isBuyer,
+      isPinned: isPinned || false,
+      isDeleted: isDeleted || false,
+      isLocked: isLocked || false,
       otherUser: {
         displayName: otherUser ? otherUser.display_name_th : null,
         username: otherUser ? otherUser.username : null
@@ -123,14 +137,19 @@ async function getUserRooms(userId) {
     };
   }));
 
-  // 3. เรียงตามข้อความล่าสุด (ใหม่สุดก่อน)
-  result.sort((a, b) => {
+  // 2.5 กรองห้องที่ถูกลบทิ้งไปแล้ว
+  const visibleRooms = result.filter(r => !r.isDeleted);
+
+  // 3. เรียงตามข้อความล่าสุด (ใหม่สุดก่อน) และปักหมุด
+  visibleRooms.sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
     const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
     const timeB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
     return timeB - timeA;
   });
 
-  return result;
+  return visibleRooms;
 }
 
 async function getRoomMessages(roomId, limit, offset) {
@@ -248,7 +267,30 @@ async function createReport(roomId, reporterId, reportedUserId, reason) {
   };
 }
 
+
+async function setChatRoomPinned(roomId, userId, isPinned) {
+  const { data: room, error: roomError } = await supabase.from('chat_rooms').select('buyer_id, seller_id').eq('id', roomId).single();
+  if (roomError) throw roomError;
+  const isBuyer = room.buyer_id === userId;
+  const column = isBuyer ? 'pinned_by_buyer' : 'pinned_by_seller';
+  const { data, error } = await supabase.from('chat_rooms').update({ [column]: isPinned }).eq('id', roomId).select();
+  if (error) throw error;
+  return data;
+}
+
+async function setChatRoomDeleted(roomId, userId, isDeleted) {
+  const { data: room, error: roomError } = await supabase.from('chat_rooms').select('buyer_id, seller_id').eq('id', roomId).single();
+  if (roomError) throw roomError;
+  const isBuyer = room.buyer_id === userId;
+  const column = isBuyer ? 'deleted_by_buyer' : 'deleted_by_seller';
+  const { data, error } = await supabase.from('chat_rooms').update({ [column]: isDeleted }).eq('id', roomId).select();
+  if (error) throw error;
+  return data;
+}
+
 module.exports = {
+  setChatRoomPinned,
+  setChatRoomDeleted,
   createOrGetRoom,
   getUserRooms,
   getRoomMessages,

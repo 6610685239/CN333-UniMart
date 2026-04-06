@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
 
@@ -6,12 +7,14 @@ class ChatRoomScreen extends StatefulWidget {
   final String roomId;
   final String currentUserId;
   final String otherUserName;
+  final bool isLocked;
 
   const ChatRoomScreen({
     super.key,
     required this.roomId,
     required this.currentUserId,
     required this.otherUserName,
+    this.isLocked = false,
   });
 
   @override
@@ -26,6 +29,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
+  IO.Socket? _socket;
+
 
   // Track failed messages for retry
   final Set<String> _failedMessageIds = {};

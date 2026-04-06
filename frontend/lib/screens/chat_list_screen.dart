@@ -17,6 +17,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   List<ChatRoom> _rooms = [];
   bool _isLoading = true;
+
+  List<ChatRoom> get _buyRooms => _rooms.where((r) => r.isBuyer).toList();
+  List<ChatRoom> get _sellRooms => _rooms.where((r) => !r.isBuyer).toList();
+
   String? _error;
 
   @override
@@ -51,123 +55,195 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('แชท', style: TextStyle(fontWeight: FontWeight.bold)),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0.5,
+        appBar: AppBar(
+          title: const Text('แชท', style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0.5,
+          bottom: TabBar(
+            labelColor: _primaryColor,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: _primaryColor,
+            tabs: const [
+              Tab(text: 'ซื้อ/เช่า'),
+              Tab(text: 'ขาย/ปล่อยเช่า'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildTabContent(_buyRooms),
+            _buildTabContent(_sellRooms),
+          ],
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error!, style: const TextStyle(color: Colors.grey, fontSize: 16)),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: _loadRooms,
-                        style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
-                        child: const Text('ลองใหม่', style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                  ),
-                )
-              : _rooms.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('ยังไม่มีการสนทนา', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadRooms,
-                      color: _primaryColor,
-                      child: ListView.separated(
-                        itemCount: _rooms.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-                        itemBuilder: (context, index) => _buildRoomItem(_rooms[index]),
-                      ),
-                    ),
     );
   }
 
-  Widget _buildRoomItem(ChatRoom room) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: CircleAvatar(
-        radius: 24,
-        backgroundColor: _primaryColor.withOpacity(0.1),
-        child: Text(
-          room.otherUserName.isNotEmpty ? room.otherUserName[0].toUpperCase() : '?',
-          style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold, fontSize: 18),
+  Widget _buildTabContent(List<ChatRoom> rooms) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_error!, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _loadRooms,
+              style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
+              child: const Text('ลองใหม่', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
+      );
+    }
+    if (rooms.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('ยังไม่มีการสนทนา', style: TextStyle(color: Colors.grey, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadRooms,
+      color: _primaryColor,
+      child: ListView.separated(
+        itemCount: rooms.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+        itemBuilder: (context, index) => _buildRoomItem(rooms[index]),
       ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              room.otherUserName,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            _formatTime(room.lastMessageTime),
-            style: TextStyle(color: Colors.grey[500], fontSize: 12),
-          ),
-        ],
-      ),
-      subtitle: Row(
-        children: [
-          Expanded(
-            child: Text(
-              room.lastMessage ?? 'ยังไม่มีข้อความ',
-              style: TextStyle(
-                color: room.unreadCount > 0 ? Colors.black87 : Colors.grey[600],
-                fontWeight: room.unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
-                fontSize: 13,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (room.unreadCount > 0)
-            Container(
-              margin: const EdgeInsets.only(left: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: _primaryColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                room.unreadCount > 99 ? '99+' : '${room.unreadCount}',
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-        ],
-      ),
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatRoomScreen(
-              roomId: room.id,
-              currentUserId: widget.userId,
-              otherUserName: room.otherUserName,
-            ),
-          ),
-        );
-        // Refresh rooms when returning from chat
-        _loadRooms();
-      },
     );
   }
+  Widget _buildRoomItem(ChatRoom room) {
+
+    
+return Dismissible(
+      key: Key(room.id.toString()),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (direction) async {
+        await ChatService.deleteRoom(room.id.toString(), widget.userId);
+        _loadRooms();
+      },
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Stack(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: _primaryColor.withOpacity(0.1),
+              child: Text(
+                room.otherUserName.isNotEmpty ? room.otherUserName[0].toUpperCase() : '?',
+                style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+            if (room.isPinned)
+              Positioned(
+                bottom: 0, right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                  child: const Icon(Icons.push_pin, size: 14, color: Colors.orange),
+                ),
+              ),
+          ],
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                room.otherUserName + (room.isLocked ? " (จบแล้ว)" : ""),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: room.isLocked ? Colors.grey : Colors.black),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              _formatTime(room.lastMessageTime),
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            ),
+          ],
+        ),
+        subtitle: Row(
+          children: [
+            Expanded(
+              child: Text(
+                room.lastMessage ?? 'ยังไม่มีข้อความ',
+                style: TextStyle(
+                  color: room.unreadCount > 0 ? Colors.black87 : Colors.grey[600],
+                  fontWeight: room.unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (room.unreadCount > 0)
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  room.unreadCount > 99 ? '99+' : '${room.unreadCount}',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+        ),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatRoomScreen(
+                roomId: room.id,
+                currentUserId: widget.userId,
+                otherUserName: room.otherUserName,
+                isLocked: room.isLocked, // wait we need to pass this or block it
+              ),
+            ),
+          );
+          _loadRooms();
+        },
+        onLongPress: () async {
+          showDialog(context: context, builder: (ctx) => AlertDialog(
+            title: const Text('จัดการแชท'),
+            content: const Text('คุณต้องการทำอะไรกับแชทนี้?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ChatService.pinRoom(room.id.toString(), widget.userId, !room.isPinned).then((_) => _loadRooms());
+                },
+                child: Text(room.isPinned ? 'เลิกปักหมุด' : 'ปักหมุด'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
+              ),
+            ],
+          ));
+        },
+      )
+    );
+
+}
 }

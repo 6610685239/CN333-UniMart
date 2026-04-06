@@ -65,10 +65,45 @@ app.use('/api', createProductRoutes(upload));
 // ==========================================
 // Start Server
 // ==========================================
+const http = require('http');
+const { Server } = require('socket.io');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('✅ User connected to socket:', socket.id);
+
+  socket.on('join_room', (roomId) => {
+    socket.join(roomId);
+    console.log(`User ${socket.id} joined room ${roomId}`);
+  });
+
+  socket.on('leave_room', (roomId) => {
+    socket.leave(roomId);
+    console.log(`User ${socket.id} left room ${roomId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected from socket:', socket.id);
+  });
+});
+
+// We can attach 'io' to app so controllers can use it
+app.set('io', io);
+
 if (require.main === module) {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`✅ Server is running on port ${PORT}`);
   });
 }
 
-module.exports = { app, supabase, prisma, createNotification, sendFcmNotification };
+// export server too
+module.exports = { app, server, io, supabase, prisma, createNotification, sendFcmNotification };
+
+
