@@ -76,6 +76,10 @@ async function sendMessage(req, res) {
     }
 
     res.status(201).json(result.message);
+    const io = req.app.get('io');
+    if (io) {
+      io.to(roomId).emit('new_message', result.message);
+    }
 
     // Fire-and-forget notification
     try {
@@ -113,4 +117,28 @@ async function createReport(req, res) {
   }
 }
 
-module.exports = { createRoom, getUserRooms, getMessages, sendMessage, createReport };
+
+async function pinRoom(req, res) {
+  const { roomId } = req.params;
+  const { userId, isPinned } = req.body;
+  try {
+    await chatService.setChatRoomPinned(roomId, userId, isPinned);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function deleteRoom(req, res) {
+  const { roomId } = req.params;
+  const { userId, isDeleted } = req.body;
+  try {
+    await chatService.setChatRoomDeleted(roomId, userId, isDeleted !== false);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+module.exports = {
+  pinRoom, deleteRoom, createRoom, getUserRooms, getMessages, sendMessage, createReport };

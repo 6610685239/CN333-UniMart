@@ -6,6 +6,10 @@ class ChatRoom {
   final String productTitle;
   final String otherUserName;
   final String? lastMessage;
+  final bool isBuyer;
+  final bool isPinned;
+  final bool isLocked;
+
   final DateTime? lastMessageTime;
   final int unreadCount;
 
@@ -17,6 +21,9 @@ class ChatRoom {
     required this.productTitle,
     required this.otherUserName,
     this.lastMessage,
+    this.isBuyer = true,
+    this.isPinned = false,
+    this.isLocked = false,
     this.lastMessageTime,
     this.unreadCount = 0,
   });

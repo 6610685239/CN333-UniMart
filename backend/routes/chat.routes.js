@@ -8,4 +8,9 @@ router.get('/rooms/:roomId/messages', chatController.getMessages);
 router.post('/messages', chatController.sendMessage);
 router.post('/reports', chatController.createReport);
 
+
+router.put('/:roomId/pin', chatController.pinRoom);
+router.delete('/:roomId', chatController.deleteRoom);
+
 module.exports = router;
+

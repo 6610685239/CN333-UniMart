@@ -35,6 +35,25 @@ class ChatService {
 
   /// ดึงรายการ Chat Room ของผู้ใช้
   /// GET /api/chat/rooms/:userId
+  
+  static Future<void> pinRoom(String roomId, String userId, bool isPinned) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/chat/$roomId/pin'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'userId': userId, 'isPinned': isPinned}),
+    );
+    if (response.statusCode != 200) throw Exception('Failed to pin room');
+  }
+
+  static Future<void> deleteRoom(String roomId, String userId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/chat/$roomId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'userId': userId}),
+    );
+    if (response.statusCode != 200) throw Exception('Failed to delete room');
+  }
+
   static Future<List<ChatRoom>> getRooms(String userId) async {
     final url = Uri.parse('$baseUrl/chat/rooms/$userId');
 
