@@ -46,6 +46,9 @@ class ChatRoom {
           ? DateTime.parse(json['lastMessage']['createdAt'])
           : null,
       unreadCount: json['unreadCount'] ?? 0,
+      isBuyer: json['isBuyer'] ?? false,
+      isPinned: json['isPinned'] ?? false,
+      isLocked: json['isLocked'] ?? false,
     );
   }
 

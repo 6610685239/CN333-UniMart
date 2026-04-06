@@ -35,8 +35,8 @@ async function getUserRooms(req, res) {
 
 async function getMessages(req, res) {
   const { roomId } = req.params;
-  const limit = parseInt(req.query.limit) || 50;
-  const offset = parseInt(req.query.offset) || 0;
+  const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+  const offset = req.query.offset ? parseInt(req.query.offset, 10) : 0;
 
   try {
     const result = await chatService.getRoomMessages(roomId, limit, offset);
@@ -145,5 +145,20 @@ async function deleteRoom(req, res) {
   }
 }
 
+async function markAsRead(req, res) {
+  const { roomId } = req.params;
+  const { userId } = req.body;
+  if (!roomId || !userId) {
+    return res.status(400).json({ success: false, message: 'กรุณาระบุ roomId และ userId' });
+  }
+  try {
+    const result = await chatService.markMessagesAsRead(roomId, userId);
+    res.json({ success: true, count: result.count });
+  } catch (err) {
+    console.error('Mark As Read Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 module.exports = {
-  pinRoom, deleteRoom, createRoom, getUserRooms, getMessages, sendMessage, createReport };
+  markAsRead, pinRoom, deleteRoom, createRoom, getUserRooms, getMessages, sendMessage, createReport };

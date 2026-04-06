@@ -165,12 +165,17 @@ async function getRoomMessages(roomId, limit, offset) {
   }
   if (roomError) throw roomError;
 
-  const { data: messages, error: msgError } = await supabase
+  let query = supabase
     .from('chat_messages')
     .select('id, room_id, sender_id, content, image_url, type, is_read, created_at')
     .eq('room_id', roomId)
-    .order('created_at', { ascending: true })
-    .range(offset, offset + limit - 1);
+    .order('created_at', { ascending: true });
+
+  if (typeof limit === 'number' && !Number.isNaN(limit)) {
+    query = query.range(offset, offset + limit - 1);
+  }
+
+  const { data: messages, error: msgError } = await query;
 
   if (msgError) throw msgError;
 
@@ -288,7 +293,21 @@ async function setChatRoomDeleted(roomId, userId, isDeleted) {
   return data;
 }
 
+async function markMessagesAsRead(roomId, userId) {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .update({ is_read: true })
+    .eq('room_id', roomId)
+    .neq('sender_id', userId)
+    .eq('is_read', false)
+    .select();
+
+  if (error) throw error;
+  return { count: data ? data.length : 0 };
+}
+
 module.exports = {
+  markMessagesAsRead,
   setChatRoomPinned,
   setChatRoomDeleted,
   createOrGetRoom,

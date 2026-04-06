@@ -54,6 +54,20 @@ class ChatService {
     if (response.statusCode != 200) throw Exception('Failed to delete room');
   }
 
+  /// Mark all messages in a room as read for a user
+  static Future<void> markAsRead(String roomId, String userId) async {
+    try {
+      await http.put(
+        Uri.parse('$baseUrl/chat/$roomId/read'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'userId': userId}),
+      );
+    } catch (e) {
+      // silent fail — not critical
+      print('markAsRead error: $e');
+    }
+  }
+
   static Future<List<ChatRoom>> getRooms(String userId) async {
     final url = Uri.parse('$baseUrl/chat/rooms/$userId');
 

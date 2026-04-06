@@ -11,6 +11,7 @@ router.post('/reports', chatController.createReport);
 
 router.put('/:roomId/pin', chatController.pinRoom);
 router.delete('/:roomId', chatController.deleteRoom);
+router.put('/:roomId/read', chatController.markAsRead);
 
 module.exports = router;
 
