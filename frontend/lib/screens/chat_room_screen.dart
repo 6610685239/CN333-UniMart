@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config.dart';
@@ -60,13 +61,18 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void _subscribeToMessages() {
     final socketUrl = AppConfig.baseUrl.replaceAll('/api', '');
 
+    // Flutter Web ต้องใช้ polling ก่อน จึงจะ upgrade เป็น websocket ได้
+    // Mobile ใช้ websocket โดยตรงได้เลย
+    final transports = kIsWeb ? ['polling', 'websocket'] : ['websocket'];
+
     _socket = IO.io(
       socketUrl,
       IO.OptionBuilder()
-          .setTransports(['websocket', 'polling'])
+          .setTransports(transports)
           .disableAutoConnect()
           .enableReconnection()
-          .setReconnectionAttempts(5)
+          .setReconnectionAttempts(10)
+          .setReconnectionDelay(2000)
           .build(),
     );
 
@@ -75,25 +81,35 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       _socket!.emit('join_room', widget.roomId);
     });
 
-    _socket!.onConnectError((err) {
-      print('❌ Socket connect error: $err');
-    });
-
-    _socket!.onError((err) {
-      print('❌ Socket error: $err');
-    });
+    _socket!.onConnectError((err) => print('❌ Socket connect error: $err'));
 
     _socket!.on('new_message', (data) {
       if (!mounted) return;
       try {
-        // Safe cast: encode to JSON string then decode to get Map<String, dynamic>
         final Map<String, dynamic> json =
             Map<String, dynamic>.from(jsonDecode(jsonEncode(data)));
         final newMessage = ChatMessage.fromJson(json);
-        if (!_messages.any((m) => m.id == newMessage.id)) {
-          setState(() => _messages.add(newMessage));
-          _scrollToBottom();
+
+        // ถ้า ID นี้มีอยู่แล้วในรายการ → ข้ามไปเลย (dedup)
+        if (_messages.any((m) => m.id == newMessage.id)) return;
+
+        if (newMessage.senderId == widget.currentUserId) {
+          // ข้อความจากตัวเอง: หา temp message แล้ว replace แทน
+          // (กรณี socket ตอบกลับมาก่อน API response จะ replace temp)
+          final tempIdx =
+              _messages.indexWhere((m) => m.id.startsWith('temp_'));
+          if (tempIdx != -1) {
+            setState(() => _messages[tempIdx] = newMessage);
+            _scrollToBottom();
+            return;
+          }
+          // ถ้าไม่มี temp → API response replace ไปแล้ว → ข้ามไม่ต้องเพิ่มซ้ำ
+          return;
         }
+
+        // ข้อความจากคนอื่น: เพิ่มตามปกติ
+        setState(() => _messages.add(newMessage));
+        _scrollToBottom();
       } catch (e) {
         print('❌ Error parsing new_message: $e | raw: $data');
       }
