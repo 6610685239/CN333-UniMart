@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config.dart';
@@ -57,39 +58,50 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   void _subscribeToMessages() {
-    // Initialize socket connection
     final socketUrl = AppConfig.baseUrl.replaceAll('/api', '');
-    _socket = IO.io(socketUrl, <String, dynamic>{
-      'transports': ['websocket'],
-      'autoConnect': false,
-    });
 
-    _socket!.connect();
+    _socket = IO.io(
+      socketUrl,
+      IO.OptionBuilder()
+          .setTransports(['websocket', 'polling'])
+          .disableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(5)
+          .build(),
+    );
 
     _socket!.onConnect((_) {
-      print('Connected to Socket.IO Server');
+      print('✅ Socket connected: ${_socket!.id}');
       _socket!.emit('join_room', widget.roomId);
     });
 
+    _socket!.onConnectError((err) {
+      print('❌ Socket connect error: $err');
+    });
+
+    _socket!.onError((err) {
+      print('❌ Socket error: $err');
+    });
+
     _socket!.on('new_message', (data) {
-      if (mounted) {
-        setState(() {
-          final newMessage = ChatMessage.fromJson(data);
-          // Check if we already added this temporarily optimistically
-          // The sender might add it twice if we don't deduplicate by tempId, 
-          // but our sendMessage replaces temp messages directly.
-          // Just make sure it's not a duplicate.
-          if (!_messages.any((m) => m.id == newMessage.id)) {
-            _messages.add(newMessage);
-            _scrollToBottom();
-          }
-        });
+      if (!mounted) return;
+      try {
+        // Safe cast: encode to JSON string then decode to get Map<String, dynamic>
+        final Map<String, dynamic> json =
+            Map<String, dynamic>.from(jsonDecode(jsonEncode(data)));
+        final newMessage = ChatMessage.fromJson(json);
+        if (!_messages.any((m) => m.id == newMessage.id)) {
+          setState(() => _messages.add(newMessage));
+          _scrollToBottom();
+        }
+      } catch (e) {
+        print('❌ Error parsing new_message: $e | raw: $data');
       }
     });
 
-    _socket!.onDisconnect((_) {
-      print('Disconnected from Socket.IO Server');
-    });
+    _socket!.onDisconnect((_) => print('Socket disconnected'));
+
+    _socket!.connect();
   }
 
   @override
