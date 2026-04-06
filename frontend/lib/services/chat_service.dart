@@ -38,7 +38,7 @@ class ChatService {
   
   static Future<void> pinRoom(String roomId, String userId, bool isPinned) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/api/chat/$roomId/pin'),
+        Uri.parse('$baseUrl/chat/$roomId/pin'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'userId': userId, 'isPinned': isPinned}),
     );
@@ -47,7 +47,7 @@ class ChatService {
 
   static Future<void> deleteRoom(String roomId, String userId) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/api/chat/$roomId'),
+        Uri.parse('$baseUrl/chat/$roomId'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'userId': userId}),
     );
