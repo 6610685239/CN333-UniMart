@@ -42,7 +42,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void initState() {
     super.initState();
     _loadMessages();
-    _subscribeToMessages();
+    _initSocket();
+    // Mark messages as read when entering the room
+    ChatService.markAsRead(widget.roomId, widget.currentUserId);
   }
 
   Future<void> _loadMessages() async {
@@ -58,7 +60,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
-  void _subscribeToMessages() {
+  void _initSocket() {
     final socketUrl = AppConfig.baseUrl.replaceAll('/api', '');
 
     // Flutter Web ต้องใช้ polling ก่อน จึงจะ upgrade เป็น websocket ได้
@@ -95,7 +97,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
         if (newMessage.senderId == widget.currentUserId) {
           // ข้อความจากตัวเอง: หา temp message แล้ว replace แทน
-          // (กรณี socket ตอบกลับมาก่อน API response จะ replace temp)
           final tempIdx =
               _messages.indexWhere((m) => m.id.startsWith('temp_'));
           if (tempIdx != -1) {
@@ -103,13 +104,14 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             _scrollToBottom();
             return;
           }
-          // ถ้าไม่มี temp → API response replace ไปแล้ว → ข้ามไม่ต้องเพิ่มซ้ำ
+          // ถ้าไม่มี temp → API response replace ไปแล้ว → ข้าม
           return;
         }
 
-        // ข้อความจากคนอื่น: เพิ่มตามปกติ
+        // ข้อความจากคนอื่น: เพิ่มตามปกติ + mark as read ทันที
         setState(() => _messages.add(newMessage));
         _scrollToBottom();
+        ChatService.markAsRead(widget.roomId, widget.currentUserId);
       } catch (e) {
         print('❌ Error parsing new_message: $e | raw: $data');
       }

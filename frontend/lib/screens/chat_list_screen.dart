@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import '../config.dart';
 import '../models/chat_room.dart';
 import '../services/chat_service.dart';
 import 'chat_room_screen.dart';
@@ -17,28 +21,100 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   List<ChatRoom> _rooms = [];
   bool _isLoading = true;
+  String? _error;
+
+  IO.Socket? _socket;
+  Timer? _pollTimer;
+  final Set<String> _joinedRooms = {};
 
   List<ChatRoom> get _buyRooms => _rooms.where((r) => r.isBuyer).toList();
   List<ChatRoom> get _sellRooms => _rooms.where((r) => !r.isBuyer).toList();
-
-  String? _error;
 
   @override
   void initState() {
     super.initState();
     _loadRooms();
+    _initSocket();
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) _loadRooms(silent: true);
+    });
   }
 
-  Future<void> _loadRooms() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _socket?.disconnect();
+    _socket?.dispose();
+    super.dispose();
+  }
+
+  void _initSocket() {
+    final socketUrl = AppConfig.baseUrl.replaceAll('/api', '');
+    final transports = kIsWeb ? ['polling', 'websocket'] : ['websocket'];
+
+    _socket = IO.io(
+      socketUrl,
+      IO.OptionBuilder()
+          .setTransports(transports)
+          .disableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(10)
+          .setReconnectionDelay(2000)
+          .build(),
+    );
+
+    _socket!.onConnect((_) {
+      print('ChatList socket connected: ${_socket!.id}');
+      _socket!.emit('join_user', widget.userId);
+      _joinedRooms.clear();
+      for (final room in _rooms) {
+        _socket!.emit('join_room', room.id);
+        _joinedRooms.add(room.id);
+      }
     });
+
+    _socket!.onConnectError((err) => print('ChatList socket error: $err'));
+
+    _socket!.on('new_message', (data) {
+      if (!mounted) return;
+      _loadRooms(silent: true);
+    });
+
+    _socket!.onDisconnect((_) => print('ChatList socket disconnected'));
+
+    _socket!.connect();
+  }
+
+  Future<void> _loadRooms({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
       final rooms = await ChatService.getRooms(widget.userId);
-      if (mounted) setState(() { _rooms = rooms; _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _rooms = rooms;
+          _isLoading = false;
+        });
+        if (_socket?.connected == true) {
+          for (final room in rooms) {
+            if (!_joinedRooms.contains(room.id)) {
+              _socket!.emit('join_room', room.id);
+              _joinedRooms.add(room.id);
+            }
+          }
+        }
+      }
     } catch (e) {
-      if (mounted) setState(() { _error = 'โหลดรายการแชทไม่สำเร็จ'; _isLoading = false; });
+      if (mounted && !silent) {
+        setState(() {
+          _error = 'โหลดรายการแชทไม่สำเร็จ';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -126,10 +202,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
       ),
     );
   }
-  Widget _buildRoomItem(ChatRoom room) {
 
-    
-return Dismissible(
+  Widget _buildRoomItem(ChatRoom room) {
+    return Dismissible(
       key: Key(room.id.toString()),
       direction: DismissDirection.endToStart,
       background: Container(
@@ -156,7 +231,8 @@ return Dismissible(
             ),
             if (room.isPinned)
               Positioned(
-                bottom: 0, right: 0,
+                bottom: 0,
+                right: 0,
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
@@ -169,8 +245,12 @@ return Dismissible(
           children: [
             Expanded(
               child: Text(
-                room.otherUserName + (room.isLocked ? " (จบแล้ว)" : ""),
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: room.isLocked ? Colors.grey : Colors.black),
+                room.otherUserName + (room.isLocked ? ' (จบแล้ว)' : ''),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: room.isLocked ? Colors.grey : Colors.black,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -210,6 +290,9 @@ return Dismissible(
           ],
         ),
         onTap: () async {
+          // Mark as read immediately when tapping
+          ChatService.markAsRead(room.id.toString(), widget.userId);
+
           await Navigator.push(
             context,
             MaterialPageRoute(
@@ -217,33 +300,36 @@ return Dismissible(
                 roomId: room.id,
                 currentUserId: widget.userId,
                 otherUserName: room.otherUserName,
-                isLocked: room.isLocked, // wait we need to pass this or block it
+                isLocked: room.isLocked,
               ),
             ),
           );
           _loadRooms();
         },
         onLongPress: () async {
-          showDialog(context: context, builder: (ctx) => AlertDialog(
-            title: const Text('จัดการแชท'),
-            content: const Text('คุณต้องการทำอะไรกับแชทนี้?'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ChatService.pinRoom(room.id.toString(), widget.userId, !room.isPinned).then((_) => _loadRooms());
-                },
-                child: Text(room.isPinned ? 'เลิกปักหมุด' : 'ปักหมุด'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
-              ),
-            ],
-          ));
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('จัดการแชท'),
+              content: const Text('คุณต้องการทำอะไรกับแชทนี้?'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ChatService.pinRoom(room.id.toString(), widget.userId, !room.isPinned)
+                        .then((_) => _loadRooms());
+                  },
+                  child: Text(room.isPinned ? 'เลิกปักหมุด' : 'ปักหมุด'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
+                ),
+              ],
+            ),
+          );
         },
-      )
+      ),
     );
-
-}
+  }
 }

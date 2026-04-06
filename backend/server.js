@@ -83,6 +83,11 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} joined room ${roomId}`);
   });
 
+  socket.on('join_user', (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`User ${socket.id} joined user channel user_${userId}`);
+  });
+
   socket.on('leave_room', (roomId) => {
     socket.leave(roomId);
     console.log(`User ${socket.id} left room ${roomId}`);
