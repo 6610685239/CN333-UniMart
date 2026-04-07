@@ -52,16 +52,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
     final socketUrl = AppConfig.baseUrl.replaceAll('/api', '');
     final transports = kIsWeb ? ['polling', 'websocket'] : ['websocket'];
 
-    _socket = IO.io(
-      socketUrl,
-      IO.OptionBuilder()
-          .setTransports(transports)
-          .disableAutoConnect()
-          .enableReconnection()
-          .setReconnectionAttempts(10)
-          .setReconnectionDelay(2000)
-          .build(),
-    );
+    _socket = IO.io(socketUrl, {
+      'transports': transports,
+      'autoConnect': false,
+      'reconnection': true,
+      'reconnectionAttempts': 10,
+      'reconnectionDelay': 2000,
+      'forceNew': true,
+    });
 
     _socket!.onConnect((_) {
       print('ChatList socket connected: ${_socket!.id}');

@@ -67,19 +67,18 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     // Mobile ใช้ websocket โดยตรงได้เลย
     final transports = kIsWeb ? ['polling', 'websocket'] : ['websocket'];
 
-    _socket = IO.io(
-      socketUrl,
-      IO.OptionBuilder()
-          .setTransports(transports)
-          .disableAutoConnect()
-          .enableReconnection()
-          .setReconnectionAttempts(10)
-          .setReconnectionDelay(2000)
-          .build(),
-    );
+    _socket = IO.io(socketUrl, {
+      'transports': transports,
+      'autoConnect': false,
+      'reconnection': true,
+      'reconnectionAttempts': 10,
+      'reconnectionDelay': 2000,
+      'forceNew': true,
+    });
 
     _socket!.onConnect((_) {
       print('✅ Socket connected: ${_socket!.id}');
+      _socket!.emit('join_user', widget.currentUserId);
       _socket!.emit('join_room', widget.roomId);
     });
 
