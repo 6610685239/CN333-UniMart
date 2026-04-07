@@ -130,6 +130,7 @@ class MyApp extends StatelessWidget {
                 roomId: args['roomId'],
                 currentUserId: args['currentUserId'],
                 otherUserName: args['otherUserName'] ?? '',
+                isLocked: args['isLocked'] ?? false,
               ),
             );
           case '/transactions':
