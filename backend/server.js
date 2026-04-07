@@ -93,6 +93,19 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} left room ${roomId}`);
   });
 
+  // Real-time read receipt: client emits this when viewing a room
+  socket.on('mark_as_read', async ({ roomId, userId }) => {
+    try {
+      const chatService = require('./services/chat.service');
+      const result = await chatService.markMessagesAsRead(roomId, userId);
+      if (result.count > 0) {
+        io.to(roomId).emit('messages_read', { roomId, readByUserId: userId, count: result.count });
+      }
+    } catch (err) {
+      console.error('Socket mark_as_read error:', err.message);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected from socket:', socket.id);
   });

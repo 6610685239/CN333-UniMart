@@ -7,6 +7,7 @@ import '../models/chat_room.dart';
 import '../services/chat_service.dart';
 import 'chat_room_screen.dart';
 
+/// Unified chat list — single list with auto-tags [ขาย]/[ซื้อ]/[ปล่อยเช่า]/[เช่า].
 class ChatListScreen extends StatefulWidget {
   final String userId;
 
@@ -17,25 +18,29 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  final Color _primaryColor = const Color(0xFFFF6F61);
+  // ── Theme ──
+  static const Color _primary = Color(0xFFFF6F61);
 
+  // ── State ──
   List<ChatRoom> _rooms = [];
   bool _isLoading = true;
   String? _error;
 
+  // ── Socket & polling ──
   IO.Socket? _socket;
   Timer? _pollTimer;
   final Set<String> _joinedRooms = {};
 
-  List<ChatRoom> get _buyRooms => _rooms.where((r) => r.isBuyer).toList();
-  List<ChatRoom> get _sellRooms => _rooms.where((r) => !r.isBuyer).toList();
+  // ─────────────────────────────────────────────
+  // Lifecycle
+  // ─────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
     _loadRooms();
     _initSocket();
-    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 12), (_) {
       if (mounted) _loadRooms(silent: true);
     });
   }
@@ -43,10 +48,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
-    _socket?.disconnect();
-    _socket?.dispose();
+    _cleanupSocket();
     super.dispose();
   }
+
+  // ─────────────────────────────────────────────
+  // Socket
+  // ─────────────────────────────────────────────
 
   void _initSocket() {
     final socketUrl = AppConfig.baseUrl.replaceAll('/api', '');
@@ -62,7 +70,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
     });
 
     _socket!.onConnect((_) {
-      print('ChatList socket connected: ${_socket!.id}');
       _socket!.emit('join_user', widget.userId);
       _joinedRooms.clear();
       for (final room in _rooms) {
@@ -71,20 +78,37 @@ class _ChatListScreenState extends State<ChatListScreen> {
       }
     });
 
-    _socket!.onConnectError((err) => print('ChatList socket error: $err'));
-
-    _socket!.on('new_message', (data) {
-      if (!mounted) return;
-      _loadRooms(silent: true);
+    _socket!.on('new_message', (_) {
+      if (mounted) _loadRooms(silent: true);
     });
 
-    _socket!.onDisconnect((_) => print('ChatList socket disconnected'));
+    _socket!.on('messages_read', (_) {
+      if (mounted) _loadRooms(silent: true);
+    });
 
     _socket!.connect();
   }
 
+  void _cleanupSocket() {
+    if (_socket != null) {
+      _socket!.off('new_message');
+      _socket!.off('messages_read');
+      for (final id in _joinedRooms) {
+        _socket!.emit('leave_room', id);
+      }
+      _joinedRooms.clear();
+      _socket!.disconnect();
+      _socket!.dispose();
+      _socket = null;
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Data
+  // ─────────────────────────────────────────────
+
   Future<void> _loadRooms({bool silent = false}) async {
-    if (!silent) {
+    if (!silent && mounted) {
       setState(() {
         _isLoading = true;
         _error = null;
@@ -92,17 +116,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
     try {
       final rooms = await ChatService.getRooms(widget.userId);
-      if (mounted) {
-        setState(() {
-          _rooms = rooms;
-          _isLoading = false;
-        });
-        if (_socket?.connected == true) {
-          for (final room in rooms) {
-            if (!_joinedRooms.contains(room.id)) {
-              _socket!.emit('join_room', room.id);
-              _joinedRooms.add(room.id);
-            }
+      if (!mounted) return;
+      setState(() {
+        _rooms = rooms;
+        _isLoading = false;
+      });
+      // Join new rooms on socket
+      if (_socket?.connected == true) {
+        for (final room in rooms) {
+          if (!_joinedRooms.contains(room.id)) {
+            _socket!.emit('join_room', room.id);
+            _joinedRooms.add(room.id);
           }
         }
       }
@@ -116,49 +140,62 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
   }
 
+  // ─────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────
+
+  /// Format timestamps in local timezone.
   String _formatTime(DateTime? time) {
     if (time == null) return '';
     final now = DateTime.now();
-    final diff = now.difference(time);
+    final local = time; // already .toLocal() in model
+    final diff = now.difference(local);
+
     if (diff.inMinutes < 1) return 'เมื่อสักครู่';
     if (diff.inHours < 1) return '${diff.inMinutes} นาทีที่แล้ว';
-    if (diff.inDays < 1) return '${diff.inHours} ชั่วโมงที่แล้ว';
+    if (diff.inDays < 1) {
+      return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    }
+    if (diff.inDays == 1) return 'เมื่อวาน';
     if (diff.inDays < 7) return '${diff.inDays} วันที่แล้ว';
-    return '${time.day}/${time.month}/${time.year}';
+    return '${local.day}/${local.month}/${local.year}';
   }
+
+  String _productImageUrl(ChatRoom room) {
+    if (room.productImages.isNotEmpty) {
+      final img = room.productImages.first;
+      if (img.startsWith('http')) return img;
+      return '${AppConfig.uploadsUrl}/$img';
+    }
+    return '';
+  }
+
+  Color _tagColor(String tag) {
+    if (tag.contains('ขาย') || tag.contains('ปล่อยเช่า')) {
+      return Colors.green;
+    }
+    return Colors.blue;
+  }
+
+  // ─────────────────────────────────────────────
+  // Build
+  // ─────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('แชท', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          title: const Text('แชท', style: TextStyle(fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 0.5,
-          bottom: TabBar(
-            labelColor: _primaryColor,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: _primaryColor,
-            tabs: const [
-              Tab(text: 'ซื้อ/เช่า'),
-              Tab(text: 'ขาย/ปล่อยเช่า'),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildTabContent(_buyRooms),
-            _buildTabContent(_sellRooms),
-          ],
-        ),
+        foregroundColor: Colors.black,
+        elevation: 0.5,
       ),
+      body: _buildBody(),
     );
   }
 
-  Widget _buildTabContent(List<ChatRoom> rooms) {
+  Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -171,14 +208,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _loadRooms,
-              style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
+              style: ElevatedButton.styleFrom(backgroundColor: _primary),
               child: const Text('ลองใหม่', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
       );
     }
-    if (rooms.isEmpty) {
+    if (_rooms.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -192,16 +229,19 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
     return RefreshIndicator(
       onRefresh: _loadRooms,
-      color: _primaryColor,
+      color: _primary,
       child: ListView.separated(
-        itemCount: rooms.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-        itemBuilder: (context, index) => _buildRoomItem(rooms[index]),
+        itemCount: _rooms.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, indent: 80),
+        itemBuilder: (context, index) => _buildRoomTile(_rooms[index]),
       ),
     );
   }
 
-  Widget _buildRoomItem(ChatRoom room) {
+  Widget _buildRoomTile(ChatRoom room) {
+    final tag = room.tagFor(widget.userId);
+    final imgUrl = _productImageUrl(room);
+
     return Dismissible(
       key: Key(room.id.toString()),
       direction: DismissDirection.endToStart,
@@ -211,7 +251,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: (direction) async {
+      onDismissed: (_) async {
         await ChatService.deleteRoom(room.id.toString(), widget.userId);
         _loadRooms();
       },
@@ -219,14 +259,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Stack(
           children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: _primaryColor.withOpacity(0.1),
-              child: Text(
-                room.otherUserName.isNotEmpty ? room.otherUserName[0].toUpperCase() : '?',
-                style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold, fontSize: 18),
-              ),
+            // Product thumbnail
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imgUrl.isNotEmpty
+                  ? Image.network(
+                      imgUrl,
+                      width: 52,
+                      height: 52,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholderImage(),
+                    )
+                  : _placeholderImage(),
             ),
+            // Pinned indicator
             if (room.isPinned)
               Positioned(
                 bottom: 0,
@@ -241,60 +287,98 @@ class _ChatListScreenState extends State<ChatListScreen> {
         ),
         title: Row(
           children: [
+            // Tag badge
+            Container(
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: _tagColor(tag).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                tag,
+                style: TextStyle(
+                  color: _tagColor(tag),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            // Other user name
             Expanded(
               child: Text(
                 room.otherUserName + (room.isLocked ? ' (จบแล้ว)' : ''),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  fontSize: 14,
                   color: room.isLocked ? Colors.grey : Colors.black,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // Timestamp
             Text(
               _formatTime(room.lastMessageTime),
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
             ),
           ],
         ),
-        subtitle: Row(
-          children: [
-            Expanded(
-              child: Text(
-                room.lastMessage ?? 'ยังไม่มีข้อความ',
-                style: TextStyle(
-                  color: room.unreadCount > 0 ? Colors.black87 : Colors.grey[600],
-                  fontWeight: room.unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 13,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              // Product title + last message
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      room.productTitle,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      room.lastMessageType == 'image'
+                          ? '📷 รูปภาพ'
+                          : room.lastMessage ?? 'ยังไม่มีข้อความ',
+                      style: TextStyle(
+                        color: room.unreadCount > 0 ? Colors.black87 : Colors.grey[600],
+                        fontWeight: room.unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            if (room.unreadCount > 0)
-              Container(
-                margin: const EdgeInsets.only(left: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _primaryColor,
-                  borderRadius: BorderRadius.circular(12),
+              // Unread badge
+              if (room.unreadCount > 0)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    room.unreadCount > 99 ? '99+' : '${room.unreadCount}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
                 ),
-                child: Text(
-                  room.unreadCount > 99 ? '99+' : '${room.unreadCount}',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
         onTap: () async {
-          // Mark as read immediately when tapping
+          // Pre-mark as read
           ChatService.markAsRead(room.id.toString(), widget.userId);
 
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ChatRoomScreen(
+              builder: (_) => ChatRoomScreen(
                 roomId: room.id,
                 currentUserId: widget.userId,
                 otherUserName: room.otherUserName,
@@ -302,9 +386,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ),
             ),
           );
+          // Refresh on return
           _loadRooms();
         },
-        onLongPress: () async {
+        onLongPress: () {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -328,6 +413,18 @@ class _ChatListScreenState extends State<ChatListScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _placeholderImage() {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: _primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(Icons.shopping_bag_outlined, color: _primary, size: 26),
     );
   }
 }
