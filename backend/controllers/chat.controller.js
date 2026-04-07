@@ -80,6 +80,8 @@ async function sendMessage(req, res) {
     if (io) {
       console.log(`📡 Emitting new_message to room ${roomId}`, result.message.id);
       io.to(roomId).emit('new_message', result.message);
+      const recipientId = senderId === result.room.buyer_id ? result.room.seller_id : result.room.buyer_id;
+      io.to(`user_${recipientId}`).emit('new_message', result.message);
     } else {
       console.log('⚠️ io is not available on req.app');
     }

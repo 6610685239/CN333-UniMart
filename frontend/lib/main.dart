@@ -14,14 +14,30 @@ import 'pages/favourite_manager.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: '.env');
+  String? startupError;
 
-  await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
-  );
+  try {
+    await dotenv.load(fileName: '.env');
 
-  await FavouriteManager.instance.init();
+    final supabaseUrl = dotenv.env['SUPABASE_URL'];
+    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+
+    if (supabaseUrl == null || supabaseUrl.isEmpty) {
+      throw Exception('Missing SUPABASE_URL in frontend/.env');
+    }
+    if (supabaseAnonKey == null || supabaseAnonKey.isEmpty) {
+      throw Exception('Missing SUPABASE_ANON_KEY in frontend/.env');
+    }
+
+    await Supabase.initialize(
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+    );
+
+    await FavouriteManager.instance.init();
+  } catch (e) {
+    startupError = e.toString();
+  }
 
   // TODO: ตั้งค่า Firebase Cloud Messaging (FCM) สำหรับ Push Notification
   // เมื่อ Firebase ถูก configure แล้ว ให้เพิ่ม:
@@ -31,15 +47,49 @@ void main() async {
   // 4. จัดการ notification tap → นำทางไปหน้าที่เกี่ยวข้อง (ChatRoom/TransactionDetail)
   // 5. Handle background messages with FirebaseMessaging.onBackgroundMessage
 
-  runApp(const MyApp());
+  runApp(MyApp(startupError: startupError));
 }
 
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final String? startupError;
+
+  const MyApp({super.key, this.startupError});
 
   @override
   Widget build(BuildContext context) {
+    if (startupError != null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 56),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'App startup failed',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    startupError!,
+                    style: const TextStyle(color: Colors.black87),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'UniMart',
