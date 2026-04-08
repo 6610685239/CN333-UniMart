@@ -161,4 +161,19 @@ async function uploadAvatar(req, res) {
   }
 }
 
-module.exports = { verify, register, login, changePassword, uploadAvatar };
+async function getUserProfile(req, res) {
+  const { userId } = req.params;
+
+  try {
+    const user = await authService.getUserProfile(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้' });
+    }
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('Get User Profile Error:', err.message);
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด' });
+  }
+}
+
+module.exports = { verify, register, login, changePassword, uploadAvatar, getUserProfile };

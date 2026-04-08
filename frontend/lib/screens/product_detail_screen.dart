@@ -6,7 +6,7 @@ import '../services/transaction_service.dart';
 import '../config.dart';
 import 'edit_product_screen.dart';
 import 'chat_room_screen.dart';
-import 'user_profile_screen.dart';
+import 'seller_profile_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -599,9 +599,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => UserProfileScreen(
-                                  userId: _product.ownerId,
-                                  displayName: _product.ownerName,
+                                builder: (_) => SellerProfileScreen(
+                                  sellerId: _product.ownerId,
+                                  sellerName: _product.ownerName,
+                                  currentUserId: widget.currentUserId,
                                 ),
                               ),
                             );

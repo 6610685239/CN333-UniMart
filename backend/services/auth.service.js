@@ -159,11 +159,23 @@ async function changePassword(userId, currentPassword, newPassword) {
   return { success: true };
 }
 
+async function getUserProfile(userId) {
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('id, display_name_th, display_name_en, username, faculty, department, tu_status, avatar')
+    .eq('id', userId)
+    .single();
+
+  if (error || !user) return null;
+  return user;
+}
+
 module.exports = {
   verifyTuApi,
   findUserByUsername,
   buildTuProfile,
   registerUser,
   loginUser,
-  changePassword
+  changePassword,
+  getUserProfile
 };
