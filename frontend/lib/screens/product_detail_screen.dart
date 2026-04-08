@@ -52,6 +52,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           location: _product.location,
           ownerId: _product.ownerId,
           ownerName: _product.ownerName,
+          type: _product.type,
+          rentPrice: _product.rentPrice,
+          favouritesCount: _product.favouritesCount,
+          createdAt: _product.createdAt,
+          quantity: _product.quantity,
         );
       });
       ScaffoldMessenger.of(
@@ -281,7 +286,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     const SizedBox(width: 12),
                     // ปุ่มซื้อ/เช่า (Buy/Rent Button)
                     Expanded(
-                      child: ElevatedButton.icon(
+                      child: _product.quantity <= 0
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'สินค้าหมด',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : ElevatedButton.icon(
                         onPressed: _product.status == 'AVAILABLE'
                             ? () => _buyOrRent()
                             : null,
@@ -611,6 +634,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 24),
                   const Divider(thickness: 1, color: Colors.grey),
                   const SizedBox(height: 16),
+
+                  // จำนวนสินค้าคงเหลือ (Stock quantity)
+                  if (_product.type == 'SALE') ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.inventory_2_outlined, size: 20, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        const Text('จำนวนคงเหลือ:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(width: 8),
+                        Text(
+                          _product.quantity > 0 ? '${_product.quantity} ชิ้น' : 'สินค้าหมด',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _product.quantity > 0 ? Colors.green : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // สถานะ และ สภาพ
                   Row(

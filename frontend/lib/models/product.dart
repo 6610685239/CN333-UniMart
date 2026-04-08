@@ -12,6 +12,9 @@ class Product {
   final String ownerName;
   final String type;
   final double rentPrice;
+  final int favouritesCount;
+  final DateTime? createdAt;
+  final int quantity;
 
   Product({
     required this.id,
@@ -27,6 +30,9 @@ class Product {
     required this.ownerName,
     this.type = 'SALE',
     this.rentPrice = 0.0,
+    this.favouritesCount = 0,
+    this.createdAt,
+    this.quantity = 1,
   });
 
 factory Product.fromJson(Map<String, dynamic> json) {
@@ -44,10 +50,13 @@ factory Product.fromJson(Map<String, dynamic> json) {
       location: json['location'] ?? 'ไม่ระบุ',
       ownerId: json['ownerId'] ?? '',
       ownerName: json['owner'] != null
-          ? json['owner']['username'] ?? 'ผู้ขายไม่ระบุชื่อ'
+          ? (json['owner']['display_name_th'] ?? json['owner']['display_name_en'] ?? json['owner']['username'] ?? 'ผู้ขายไม่ระบุชื่อ')
           : 'ผู้ขายไม่ระบุชื่อ',
       type: json['type'] ?? 'SALE',
       rentPrice: (json['rentPrice'] as num?)?.toDouble() ?? 0.0,
+      favouritesCount: (json['favouritesCount'] as num?)?.toInt() ?? 0,
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
     );
   }
 }

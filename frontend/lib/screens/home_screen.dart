@@ -30,9 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final allProducts = await api.getProducts();
       setState(() {
-        // กรอง: เอาเฉพาะของที่ไม่ใช่ของฉัน (ownerId != currentUserId)
-        products =
-            allProducts.where((p) => p.ownerId != widget.currentUserId).toList();
+        // แสดงสินค้าทั้งหมด (รวมของตัวเอง — เจ้าของจะเห็นแต่ซื้อ/เช่าไม่ได้)
+        products = allProducts;
         isLoading = false;
       });
     } catch (e) {

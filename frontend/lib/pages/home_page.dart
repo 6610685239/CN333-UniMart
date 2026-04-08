@@ -6,6 +6,7 @@ import '../screens/add_product_screen.dart';
 import '../screens/chat_list_screen.dart';
 import '../screens/user_profile_screen.dart';
 import '../screens/product_detail_screen.dart';
+import '../screens/all_products_screen.dart';
 import '../models/product.dart';
 import '../config.dart';
 
@@ -115,6 +116,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final baseProducts = _getBaseProducts();
+    final trendingProducts = _getTrendingProducts();
+    final recentProducts = _getRecentProducts();
+
     return SafeArea(
       child: Column(
         children: [
@@ -128,19 +133,70 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 12),
                   _buildBanner(),
                   const SizedBox(height: 22),
-                  _buildSectionHeader('Categories', action: 'See all', onActionTap: () => _showFilterSheet(context)),
+                  _buildSectionHeader('Categories'),
                   const SizedBox(height: 12),
                   _buildCategoryRow(),
                   const SizedBox(height: 26),
-                  _buildSectionHeader('Trending Now 🔥', action: 'See all', onActionTap: () => _showFilterSheet(context)),
+                  _buildSectionHeader('Trending Now 🔥', action: 'See all', onActionTap: () => _openAllProducts('Trending Now', trendingProducts)),
                   const SizedBox(height: 12),
-                  _buildTrendingList(),
+                  _buildProductCarousel(trendingProducts, emptyTitle: 'ยังไม่มีสินค้ายอดนิยม'),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader('Recently Add ✨', action: 'See all', onActionTap: () => _openAllProducts('Recently Added', recentProducts)),
+                  const SizedBox(height: 12),
+                  _buildProductCarousel(recentProducts, emptyTitle: 'ยังไม่มีสินค้าใหม่'),
                   const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Product> _getBaseProducts() {
+    return _isFiltered && _filteredProducts != null ? _filteredProducts! : widget.products;
+  }
+
+  List<Product> _getCategoryScopedProducts() {
+    final baseProducts = _getBaseProducts();
+    if (_selectedCategory == null) return List<Product>.from(baseProducts);
+
+    return baseProducts.where((p) => p.categoryName == _selectedCategory).toList();
+  }
+
+  List<Product> _getTrendingProducts() {
+    final products = _getCategoryScopedProducts();
+    products.sort((a, b) {
+      final favouriteCompare = b.favouritesCount.compareTo(a.favouritesCount);
+      if (favouriteCompare != 0) return favouriteCompare;
+
+      final aCreatedAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bCreatedAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bCreatedAt.compareTo(aCreatedAt);
+    });
+    return products;
+  }
+
+  List<Product> _getRecentProducts() {
+    final products = _getCategoryScopedProducts();
+    products.sort((a, b) {
+      final aCreatedAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bCreatedAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bCreatedAt.compareTo(aCreatedAt);
+    });
+    return products;
+  }
+
+  void _openAllProducts(String title, List<Product> products) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AllProductsScreen(
+          title: title,
+          products: products,
+          currentUserId: widget.currentUserId,
+        ),
       ),
     );
   }
@@ -385,7 +441,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ── TRENDING LIST ────────────────────────────────────────────
-  Widget _buildTrendingList() {
+  Widget _buildProductCarousel(List<Product> displayProducts, {required String emptyTitle}) {
     // Loading state
     if (widget.isLoading) {
       return const SizedBox(
@@ -395,11 +451,6 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
-
-    // Apply category filter
-    final displayProducts = _selectedCategory != null
-        ? widget.products.where((p) => p.categoryName == _selectedCategory).toList()
-        : widget.products;
 
     // Empty / error state
     if (displayProducts.isEmpty) {
@@ -412,7 +463,7 @@ class _HomePageState extends State<HomePage> {
               Icon(Icons.storefront_outlined, size: 48, color: _textMid),
               const SizedBox(height: 12),
               Text(
-                _selectedCategory != null ? 'ไม่พบสินค้าในหมวด $_selectedCategory' : 'ไม่พบสินค้า',
+                _selectedCategory != null ? 'ไม่พบสินค้าในหมวด $_selectedCategory' : emptyTitle,
                 style: TextStyle(fontSize: 14, color: _textMid, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               if (_selectedCategory != null)
@@ -453,7 +504,8 @@ class _HomePageState extends State<HomePage> {
     final fav     = FavouriteManager.instance;
     final productIdStr = product.id.toString();
     final isLiked = fav.isFavourited(productIdStr);
-    final count   = fav.getCount(productIdStr);
+    final liveCount = fav.getCount(productIdStr);
+    final count   = liveCount > 0 ? liveCount : product.favouritesCount;
 
     // Build image widget — use network URL if available
     Widget imageWidget;
