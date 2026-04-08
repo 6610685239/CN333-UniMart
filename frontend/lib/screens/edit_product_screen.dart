@@ -20,6 +20,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   late TextEditingController _priceCtrl;
   late String _selectedCondition;
   late TextEditingController _locationCtrl;
+  late TextEditingController _quantityCtrl;
 
   @override
   void initState() {
@@ -30,6 +31,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     _priceCtrl = TextEditingController(text: widget.product.price.toString());
     _selectedCondition = widget.product.condition;
     _locationCtrl = TextEditingController(text: widget.product.location);
+    _quantityCtrl = TextEditingController(text: widget.product.quantity.toString());
   }
 
   Future<void> _updateProduct() async {
@@ -46,6 +48,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           "price": _priceCtrl.text,
           "condition": _selectedCondition,
           "location": _locationCtrl.text,
+          "quantity": _quantityCtrl.text,
         }),
       );
 
@@ -72,6 +75,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
             TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: "ชื่อสินค้า")),
             TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: "รายละเอียด"), maxLines: 3),
             TextFormField(controller: _priceCtrl, decoration: const InputDecoration(labelText: "ราคา"), keyboardType: TextInputType.number),
+            if (widget.product.type == 'SALE')
+              TextFormField(
+                controller: _quantityCtrl,
+                decoration: const InputDecoration(labelText: "จำนวนสินค้า"),
+                keyboardType: TextInputType.number,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'กรุณาระบุจำนวน';
+                  final n = int.tryParse(v);
+                  if (n == null || n < 0) return 'จำนวนต้องไม่ติดลบ';
+                  return null;
+                },
+              ),
             DropdownButtonFormField<String>(
               value: _selectedCondition,
               items: ['มือหนึ่ง', 'มือสอง (สภาพดี)', 'มือสอง (มีตำหนิ)']

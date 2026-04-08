@@ -299,6 +299,19 @@ class _MyShopScreenState extends State<MyShopScreen> {
                         ),
                       ],
                     ),
+
+                    // จำนวนสินค้า (เฉพาะ SALE)
+                    if (!isRent) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'คงเหลือ: ${product.quantity}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: product.quantity > 0 ? Colors.green[700] : Colors.red,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

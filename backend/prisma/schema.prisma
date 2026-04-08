@@ -72,8 +72,9 @@ model Product {
   currentRenterId String?
   rentDueDate     DateTime?
 
-  // Iteration 2 — new field
+  // Iteration 2 — new fields
   meetingPointId  Int?
+  quantity        Int       @default(1)
 
   owner        users         @relation(fields: [ownerId], references: [id])
   category     Category?     @relation(fields: [categoryId], references: [id])

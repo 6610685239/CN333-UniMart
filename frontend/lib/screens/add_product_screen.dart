@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/filter_service.dart';
 import '../config.dart';
@@ -30,6 +31,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
+  final _quantityCtrl = TextEditingController(text: '1');
 
   String _selectedCondition = 'มือหนึ่ง';
   String? _selectedCategoryId;
@@ -100,35 +102,44 @@ class _AddProductScreenState extends State<AddProductScreen> {
           if (kIsWeb) {
             setState(() => _selectedImages.add(img));
           } else {
-            CroppedFile? croppedFile = await ImageCropper().cropImage(
-              sourcePath: img.path,
-              uiSettings: [
-                AndroidUiSettings(
-                  toolbarTitle: 'ปรับขนาดรูปภาพ',
-                  toolbarColor: Colors.black,
-                  toolbarWidgetColor: Colors.white,
-                  initAspectRatio: CropAspectRatioPreset.square,
-                  lockAspectRatio: false,
-                  aspectRatioPresets: [
-                    CropAspectRatioPreset.square,
-                    CropAspectRatioPreset.ratio4x3,
-                    CropAspectRatioPreset.original,
-                  ],
-                ),
-                IOSUiSettings(
-                  title: 'ปรับขนาดรูปภาพ',
-                  cancelButtonTitle: 'ยกเลิก',
-                  doneButtonTitle: 'เสร็จสิ้น',
-                  aspectRatioPresets: [
-                    CropAspectRatioPreset.square,
-                    CropAspectRatioPreset.ratio4x3,
-                    CropAspectRatioPreset.original,
-                  ],
-                ),
-              ],
-            );
-            if (croppedFile != null) {
-              setState(() => _selectedImages.add(XFile(croppedFile.path)));
+            try {
+              CroppedFile? croppedFile = await ImageCropper().cropImage(
+                sourcePath: img.path,
+                uiSettings: [
+                  AndroidUiSettings(
+                    toolbarTitle: 'ปรับขนาดรูปภาพ',
+                    toolbarColor: Colors.black,
+                    toolbarWidgetColor: Colors.white,
+                    initAspectRatio: CropAspectRatioPreset.square,
+                    lockAspectRatio: false,
+                    aspectRatioPresets: [
+                      CropAspectRatioPreset.square,
+                      CropAspectRatioPreset.ratio4x3,
+                      CropAspectRatioPreset.original,
+                    ],
+                  ),
+                  IOSUiSettings(
+                    title: 'ปรับขนาดรูปภาพ',
+                    cancelButtonTitle: 'ยกเลิก',
+                    doneButtonTitle: 'เสร็จสิ้น',
+                    aspectRatioPresets: [
+                      CropAspectRatioPreset.square,
+                      CropAspectRatioPreset.ratio4x3,
+                      CropAspectRatioPreset.original,
+                    ],
+                  ),
+                ],
+              );
+              if (croppedFile != null) {
+                setState(() => _selectedImages.add(XFile(croppedFile.path)));
+              } else {
+                // ผู้ใช้กดยกเลิก cropper → ใช้รูปต้นฉบับ
+                setState(() => _selectedImages.add(img));
+              }
+            } catch (cropError) {
+              // cropper ไม่รองรับแพลตฟอร์มนี้ → ใช้รูปต้นฉบับ
+              print('Cropper error (using original): $cropError');
+              setState(() => _selectedImages.add(img));
             }
           }
         }
@@ -189,10 +200,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
         request.fields['meetingPointId'] = _selectedMeetingPointId!;
       }
 
+      request.fields['quantity'] = _quantityCtrl.text;
+
       for (var file in _selectedImages) {
         final bytes = await file.readAsBytes();
+        // Ensure filename has proper extension for multer
+        final fileName = file.name.contains('.') ? file.name : '${file.name}.jpg';
+        final ext = fileName.split('.').last.toLowerCase();
+        final mimeSubtype = (ext == 'png') ? 'png' : (ext == 'gif') ? 'gif' : 'jpeg';
         request.files.add(
-          http.MultipartFile.fromBytes('images', bytes, filename: file.name),
+          http.MultipartFile.fromBytes(
+            'images',
+            bytes,
+            filename: fileName,
+            contentType: MediaType('image', mimeSubtype),
+          ),
         );
       }
 
@@ -531,6 +553,33 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         validator: (v) => v!.isEmpty ? 'กรุณากรอกราคา' : null,
                       ),
                     ),
+
+                    const SizedBox(height: 20),
+
+                    // จำนวนสินค้า
+                    if (_selectedType == 'SALE')
+                      _buildFieldContainer(
+                        label: "Quantity (จำนวน)",
+                        child: TextFormField(
+                          controller: _quantityCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'e.g. 1',
+                            hintStyle: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'กรุณาระบุจำนวน';
+                            final n = int.tryParse(v);
+                            if (n == null || n < 1) return 'จำนวนต้องมากกว่า 0';
+                            return null;
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 20),
 
                     // สถานที่ (Dropdown จาก meeting points เพื่อใช้กรองข้อมูล)
                     _buildFieldContainer(

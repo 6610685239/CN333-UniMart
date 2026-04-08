@@ -15,10 +15,25 @@ async function createTransaction(buyerId, productId, type) {
       return { error: 'RESERVED' };
     }
 
-    // Set product status to RESERVED so no one else can buy it
+    // Check stock quantity for SALE products
+    if (type === 'SALE' && product.quantity <= 0) {
+      return { error: 'OUT_OF_STOCK' };
+    }
+
+    // Decrement quantity for SALE; only set RESERVED when stock hits 0
+    const updateData = {};
+    if (type === 'SALE') {
+      updateData.quantity = { decrement: 1 };
+      // If this was the last item, mark as RESERVED; otherwise keep AVAILABLE
+      updateData.status = product.quantity <= 1 ? 'RESERVED' : 'AVAILABLE';
+    } else {
+      // RENT always goes to RESERVED
+      updateData.status = 'RESERVED';
+    }
+
     await tx.product.update({
       where: { id: parseInt(productId) },
-      data: { status: 'RESERVED' }
+      data: updateData
     });
 
     const transaction = await tx.transaction.create({
@@ -131,7 +146,10 @@ async function cancelTransaction(id, canceledBy, cancelReason) {
     }),
     prisma.product.update({
       where: { id: transaction.productId },
-      data: { status: 'Available' }
+      data: {
+        status: 'AVAILABLE',
+        ...(transaction.type === 'SALE' ? { quantity: { increment: 1 } } : {}),
+      }
     })
   ]);
 
