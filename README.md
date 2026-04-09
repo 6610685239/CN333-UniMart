@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=28&duration=2500&pause=800&color=FF6B35&center=true&vCenter=true&width=900&lines=CN333+UniMart;Second-hand+Marketplace+for+TU+Students;Buy+%E2%80%A2+Sell+%E2%80%A2+Rent+%E2%80%94+Verified+by+TU+API" alt="Typing SVG" />
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=28&duration=2500&pause=800&color=FF6B35&center=true&vCenter=true&width=900&lines=CN333+UniMart;Buy+%E2%80%A2+Sell+%E2%80%A2+Rent+%E2%80%94+Verified+by+TU+API" alt="Typing SVG" />
 
 <br/>
 
@@ -31,15 +31,17 @@ Buy, Sell, and Rent items within the university — authenticated via **TU RESTf
 
 <div align="center">
 
-| Layer | Technology |
-|:---:|:---:|
-| ![Flutter](https://img.shields.io/badge/Frontend-Flutter_(Dart_^3.8.1)-02569B?style=for-the-badge&logo=flutter&logoColor=white) | Mobile & Web Application |
-| ![Node.js](https://img.shields.io/badge/Backend-Node.js_+_Express_5.2-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) | REST API Server |
-| ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL_(Supabase)-316192?style=for-the-badge&logo=postgresql&logoColor=white) | Relational Database |
-| ![Prisma](https://img.shields.io/badge/ORM-Prisma_6.19-2D3748?style=for-the-badge&logo=prisma&logoColor=white) | Database ORM |
-| ![Socket.IO](https://img.shields.io/badge/Realtime-Socket.IO_4.8-010101?style=for-the-badge&logo=socketdotio&logoColor=white) | Real-time Chat |
-| ![JWT](https://img.shields.io/badge/Auth-JWT_+_bcrypt_+_TU_API-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white) | Authentication |
-| ![Jest](https://img.shields.io/badge/Testing-Jest_+_fast--check-C21325?style=for-the-badge&logo=jest&logoColor=white) | Property-based Testing |
+| **Frontend** | **Backend** | **Database** |
+| :---: | :---: | :---: |
+| ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) | ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white) |
+
+| **ORM** | **Real-time** | **Auth** |
+| :---: | :---: | :---: |
+| ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white) | ![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white) | ![JWT](https://img.shields.io/badge/JWT_+_bcrypt-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white) |
+
+| **File Upload** | **Testing** | **State Management** |
+| :---: | :---: | :---: |
+| ![Multer](https://img.shields.io/badge/Multer_2.0-FF6B35?style=for-the-badge&logoColor=white) | ![Jest](https://img.shields.io/badge/Jest_+_fast--check-C21325?style=for-the-badge&logo=jest&logoColor=white) | ![SharedPreferences](https://img.shields.io/badge/SharedPreferences-02569B?style=for-the-badge&logo=flutter&logoColor=white) |
 
 </div>
 
@@ -318,10 +320,13 @@ npx jest tests/transaction.property.test.js --forceExit
 
 <div align="center">
 
-| Student ID | Name | Role |
+| Student ID | Name |
 |:---:|:---|:---|
-| **661068XXXX** | — | — |
-| **661068XXXX** | — | — |
+| **6610685056** | Chonchanan Jitrawang |
+| **6610685098** | Kittidet Wichaidit |
+| **6610685122** | Chayawat Kanjanakaew |
+| **6610685205** | Nonthapat Boonprasith |
+| **6610685239** | Parunchai Timklip | 
 
 </div>
 
