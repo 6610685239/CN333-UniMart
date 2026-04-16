@@ -1,3 +1,8 @@
+String _normalizeProductStatus(dynamic status) {
+  final normalized = (status ?? 'AVAILABLE').toString().trim().toUpperCase();
+  return normalized.isEmpty ? 'AVAILABLE' : normalized;
+}
+
 /// Represents a chat room in the unified chat list.
 /// Each room is tied to a specific product + buyer + seller.
 class ChatRoom {
@@ -70,6 +75,11 @@ class ChatRoom {
     final otherUser = json['otherUser'] as Map<String, dynamic>?;
     final product = json['product'] as Map<String, dynamic>?;
     final lastMsg = json['lastMessage'] as Map<String, dynamic>?;
+    final productImages = json['productImages'] is List
+      ? List<String>.from(json['productImages'] as List)
+      : product?['images'] is List
+        ? List<String>.from(product?['images'] as List)
+        : <String>[];
 
     return ChatRoom(
       id: json['id']?.toString() ?? '',
@@ -78,19 +88,17 @@ class ChatRoom {
       isBuyer: json['isBuyer'] ?? false,
       isPinned: json['isPinned'] ?? false,
       isLocked: json['isLocked'] ?? false,
-      otherUserId: otherUser?['id'] ?? '',
-      otherUserName: otherUser?['displayName'] ?? otherUser?['username'] ?? 'ไม่ระบุชื่อ',
-      otherUserAvatar: otherUser?['avatar'],
-      productId: product?['id'],
-      productTitle: product?['title'] ?? 'ไม่ระบุ',
-      productImages: product?['images'] != null
-          ? List<String>.from(product!['images'])
-          : [],
-      productPrice: product?['price'] ?? 0,
-      productRentPrice: product?['rentPrice'] ?? 0,
-      productType: product?['type'] ?? 'SALE',
-      productOwnerId: product?['ownerId'] ?? '',
-      productStatus: product?['status'] ?? 'AVAILABLE',
+      otherUserId: json['otherUserId'] ?? otherUser?['id'] ?? '',
+      otherUserName: json['otherUserName'] ?? otherUser?['displayName'] ?? otherUser?['username'] ?? 'ไม่ระบุชื่อ',
+      otherUserAvatar: json['otherUserAvatar'] ?? otherUser?['avatar'],
+      productId: json['productId'] ?? product?['id'],
+      productTitle: json['productTitle'] ?? product?['title'] ?? 'ไม่ระบุ',
+      productImages: productImages,
+      productPrice: json['productPrice'] ?? product?['price'] ?? 0,
+      productRentPrice: json['productRentPrice'] ?? product?['rentPrice'] ?? 0,
+      productType: json['productType'] ?? product?['type'] ?? 'SALE',
+      productOwnerId: json['productOwnerId'] ?? product?['ownerId'] ?? '',
+      productStatus: _normalizeProductStatus(json['productStatus'] ?? product?['status']),
       lastMessage: lastMsg?['content'],
       lastMessageType: lastMsg?['type'],
       lastMessageTime: lastMsg?['createdAt'] != null

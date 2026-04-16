@@ -40,17 +40,15 @@ if (!fs.existsSync('./uploads')) {
   fs.mkdirSync('./uploads');
 }
 
-// Config Multer สำหรับอัปโหลดรูป
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => {
-    // multer 2.x uses originalName (camelCase), multer 1.x uses originalname (lowercase)
-    const origName = file.originalname || file.originalName || 'image.jpg';
-    const ext = path.extname(origName) || '.jpg';
-    cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + ext);
+// Config Multer — memory storage (buffer) เพื่อส่งต่อไป Supabase Storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    cb(null, allowed.includes(file.mimetype));
   }
 });
-const upload = multer({ storage: storage });
 
 // ==========================================
 // Mount Routes

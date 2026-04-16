@@ -1,4 +1,39 @@
-const { prisma } = require('../models');
+const { prisma, supabase } = require('../models');
+const path = require('path');
+
+const BUCKET = 'product-images';
+
+/**
+ * Upload an array of multer memory files to Supabase Storage.
+ * Returns an array of public URLs.
+ */
+async function uploadImagesToSupabase(files) {
+  if (!files || files.length === 0) return [];
+
+  const urls = [];
+  for (const file of files) {
+    const origName = file.originalname || file.originalName || 'image.jpg';
+    const ext = path.extname(origName) || '.jpg';
+    const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const filePath = `products/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) throw new Error(`Image upload failed: ${error.message}`);
+
+    const { data: urlData } = supabase.storage
+      .from(BUCKET)
+      .getPublicUrl(filePath);
+
+    urls.push(urlData.publicUrl);
+  }
+  return urls;
+}
 
 async function attachFavouriteCounts(products) {
   if (!products || products.length === 0) return [];
@@ -32,7 +67,7 @@ async function getCategories() {
 
 async function createProduct(body, files) {
   const { title, description, price, categoryId, condition, ownerId, location, type, rentPrice, meetingPointId, quantity } = body;
-  const imageFilenames = files ? files.map(file => file.filename) : [];
+  const imageUrls = await uploadImagesToSupabase(files);
   console.log("ownerId:", ownerId);
 
   const productData = {
@@ -40,7 +75,7 @@ async function createProduct(body, files) {
     location: location || 'ไม่ระบุ',
     categoryId: parseInt(categoryId),
     ownerId: ownerId,
-    images: imageFilenames,
+    images: imageUrls,
     status: 'AVAILABLE',
     type: type || 'SALE',
     rentPrice: rentPrice ? parseFloat(rentPrice) : null,

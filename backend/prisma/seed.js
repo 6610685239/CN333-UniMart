@@ -42,7 +42,7 @@ async function main() {
     });
   }
 
-  console.log('Seed completed: 8 categories, 5 meeting points');
+  console.log(`Seed completed: ${categories.length} categories, ${meetingPoints.length} meeting points`);
 }
 
 main()

@@ -56,8 +56,10 @@ async function registerUser(userData) {
   const password_hash = await bcrypt.hash(app_password, SALT_ROUNDS);
 
   if (existing) {
+    const hasPasswordHashField = Object.prototype.hasOwnProperty.call(existing, 'password_hash');
+
     // ถ้ามีบัญชีแล้วและมี password_hash → conflict จริง
-    if (existing.password_hash) {
+    if (!hasPasswordHashField || existing.password_hash) {
       return { conflict: true };
     }
     // ถ้ามีบัญชีแต่ยังไม่มีรหัสผ่าน (บัญชีเก่า Iteration 1) → update password_hash

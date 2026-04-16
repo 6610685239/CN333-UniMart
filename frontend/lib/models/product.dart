@@ -1,3 +1,8 @@
+String _normalizeStatus(dynamic status) {
+  final normalized = (status ?? 'AVAILABLE').toString().trim().toUpperCase();
+  return normalized.isEmpty ? 'AVAILABLE' : normalized;
+}
+
 class Product {
   final int id;
   final String title;
@@ -41,17 +46,17 @@ factory Product.fromJson(Map<String, dynamic> json) {
       title: json['title'] ?? 'ไม่มีชื่อสินค้า', // ดัก null กัน Error ประเภท String
       description: json['description'] ?? '',
       price: json['price'] != null ? (json['price'] as num).toDouble() : 0.0, // ดัก null ให้ราคาเป็น 0.0 ก่อนแปลงค่า
-      status: json['status'] ?? 'AVAILABLE',
+    status: _normalizeStatus(json['status']),
       condition: json['condition'] ?? 'มือหนึ่ง',
       images: json['images'] != null ? List<String>.from(json['images']) : [],
-      categoryName: json['category'] != null
+    categoryName: json['categoryName'] ?? (json['category'] != null
           ? json['category']['name']
-          : 'ไม่ระบุ',
+      : 'ไม่ระบุ'),
       location: json['location'] ?? 'ไม่ระบุ',
       ownerId: json['ownerId'] ?? '',
-      ownerName: json['owner'] != null
+    ownerName: json['ownerName'] ?? (json['owner'] != null
           ? (json['owner']['display_name_th'] ?? json['owner']['display_name_en'] ?? json['owner']['username'] ?? 'ผู้ขายไม่ระบุชื่อ')
-          : 'ผู้ขายไม่ระบุชื่อ',
+      : 'ผู้ขายไม่ระบุชื่อ'),
       type: json['type'] ?? 'SALE',
       rentPrice: (json['rentPrice'] as num?)?.toDouble() ?? 0.0,
       favouritesCount: (json['favouritesCount'] as num?)?.toInt() ?? 0,

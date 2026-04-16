@@ -1,3 +1,16 @@
+Map<String, dynamic>? _normalizeUserSummary(dynamic user) {
+  if (user is! Map) return null;
+
+  final map = Map<String, dynamic>.from(user as Map);
+  final displayNameTh = map['displayNameTh'] ?? map['display_name_th'];
+  final displayNameEn = map['displayNameEn'] ?? map['display_name_en'];
+
+  if (displayNameTh != null) map['displayNameTh'] = displayNameTh;
+  if (displayNameEn != null) map['displayNameEn'] = displayNameEn;
+
+  return map;
+}
+
 class Transaction {
   final int id;
   final String buyerId;
@@ -48,12 +61,8 @@ class Transaction {
       product: json['product'] != null
           ? Map<String, dynamic>.from(json['product'])
           : null,
-      buyer: json['buyer'] != null
-          ? Map<String, dynamic>.from(json['buyer'])
-          : null,
-      seller: json['seller'] != null
-          ? Map<String, dynamic>.from(json['seller'])
-          : null,
+        buyer: _normalizeUserSummary(json['buyer']),
+        seller: _normalizeUserSummary(json['seller']),
     );
   }
 

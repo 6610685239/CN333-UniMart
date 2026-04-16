@@ -89,7 +89,7 @@ async function getUserRooms(userId) {
     if (msgErr) throw msgErr;
 
     const lastMessage = lastMsgs && lastMsgs.length > 0
-      ? { content: lastMsgs[0].content, createdAt: lastMsgs[0].created_at, type: lastMsgs[0].type, senderId: lastMsgs[0].sender_id }
+      ? { content: lastMsgs[0].content, createdAt: lastMsgs[0].created_at, type: lastMsgs[0].type }
       : null;
 
     // Unread count
@@ -122,12 +122,19 @@ async function getUserRooms(userId) {
       isPinned: isPinned || false,
       isDeleted: isDeleted || false,
       isLocked: isLocked || false,
+      otherUserId,
+      otherUserAvatar: otherUser?.avatar || null,
       otherUser: {
-        id: otherUserId,
         displayName: otherUser?.display_name_th || otherUser?.display_name_en || null,
         username: otherUser?.username || null,
-        avatar: otherUser?.avatar || null,
       },
+      productTitle: product?.title || null,
+      productImages: product?.images || [],
+      productPrice: product?.price || 0,
+      productRentPrice: product?.rentPrice || 0,
+      productType: product?.type || 'SALE',
+      productOwnerId: product?.ownerId || '',
+      productStatus: product?.status || 'AVAILABLE',
       product: product ? {
         id: product.id,
         title: product.title,
@@ -280,7 +287,6 @@ async function sendMessage(roomId, senderId, content, imageUrl, type) {
       content: newMessage.content || null,
       imageUrl: newMessage.image_url || null,
       type: newMessage.type,
-      isRead: newMessage.is_read || false,
       createdAt: newMessage.created_at,
     },
     room: { id: room.id, buyer_id: room.buyer_id, seller_id: room.seller_id },
