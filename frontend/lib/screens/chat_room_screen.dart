@@ -109,10 +109,19 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> with WidgetsBindingObse
   Future<void> _loadRoomDetail() async {
     try {
       final detail = await ChatService.getRoomDetail(widget.roomId);
-      if (mounted && detail['product'] != null) {
+      if (mounted && detail['success'] != false) {
         setState(() => _roomDetail = detail);
       }
     } catch (_) {}
+  }
+
+  String _getReportedUserId() {
+    final buyerId = _roomDetail?['buyerId']?.toString();
+    final sellerId = _roomDetail?['sellerId']?.toString();
+
+    if (buyerId == widget.currentUserId) return sellerId ?? '';
+    if (sellerId == widget.currentUserId) return buyerId ?? '';
+    return '';
   }
 
   Future<void> _loadMessages() async {
@@ -396,7 +405,22 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> with WidgetsBindingObse
   }
 
   Future<void> _submitReport(String reason) async {
-    final result = await ChatService.reportUser(widget.roomId, widget.currentUserId, '', reason);
+    final reportedUserId = _getReportedUserId();
+    if (reportedUserId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('ไม่สามารถระบุผู้ใช้ที่ต้องการรายงานได้'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    final result = await ChatService.reportUser(
+      widget.roomId,
+      widget.currentUserId,
+      reportedUserId,
+      reason,
+    );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(result['id'] != null ? 'ส่งรายงานเรียบร้อยแล้ว' : result['message'] ?? 'ส่งรายงานไม่สำเร็จ'),

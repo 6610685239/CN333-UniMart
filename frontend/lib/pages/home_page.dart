@@ -155,7 +155,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<Product> _getBaseProducts() {
-    return _isFiltered && _filteredProducts != null ? _filteredProducts! : widget.products;
+    final source = _isFiltered && _filteredProducts != null ? _filteredProducts! : widget.products;
+    return source.where((product) => product.ownerId != widget.currentUserId).toList();
   }
 
   List<Product> _getCategoryScopedProducts() {

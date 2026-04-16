@@ -21,6 +21,9 @@ async function create(req, res) {
     if (result.error === 'RESERVED') {
       return res.status(409).json({ success: false, message: 'สินค้านี้ถูกจองแล้ว' });
     }
+    if (result.error === 'OUT_OF_STOCK') {
+      return res.status(409).json({ success: false, message: 'สินค้าหมด' });
+    }
 
     res.status(201).json(result.transaction);
   } catch (err) {

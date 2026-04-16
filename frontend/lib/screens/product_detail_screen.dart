@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
+import '../pages/favourite_manager.dart';
 import '../services/api_service.dart';
 import '../services/chat_service.dart';
 import '../services/transaction_service.dart';
@@ -222,6 +223,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final favouriteManager = FavouriteManager.instance;
+    final productIdStr = _product.id.toString();
+    final isLiked = favouriteManager.isFavourited(productIdStr);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -252,9 +256,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.favorite_border),
+                        icon: Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          color: isLiked ? const Color(0xFFF48FB1) : Colors.black54,
+                        ),
                         onPressed: () {
-                          // TODO: ทำระบบกดถูกใจ
+                          setState(() {
+                            favouriteManager.toggle(productIdStr, product: _product);
+                          });
                         },
                       ),
                     ),
@@ -391,7 +400,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             onPageChanged: (index) =>
                                 setState(() => _currentImageIndex = index),
                             itemBuilder: (context, index) {
-                              final imageUrl = '${AppConfig.uploadsUrl}/${_product.images[index]}';
+                              final img = _product.images[index];
+                              final imageUrl = img.startsWith('http') ? img : '${AppConfig.uploadsUrl}/$img';
                               return GestureDetector(
                                 onTap: () {
                                   Navigator.push(

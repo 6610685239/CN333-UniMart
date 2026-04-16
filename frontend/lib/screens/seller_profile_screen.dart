@@ -283,7 +283,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   Widget _buildProductCard(Product product) {
     final hasImage = product.images.isNotEmpty;
     final imageUrl = hasImage
-        ? '${AppConfig.uploadsUrl}/${product.images.first}'
+        ? (product.images.first.startsWith('http') ? product.images.first : '${AppConfig.uploadsUrl}/${product.images.first}')
         : null;
 
     return GestureDetector(

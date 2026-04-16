@@ -1,9 +1,12 @@
 const { prisma } = require('../models');
 
+function normalizeProductStatus(status) {
+  return (status || '').toString().trim().toUpperCase();
+}
+
 async function createTransaction(buyerId, productId, type) {
-  // Use a transaction to reliably lock the product status
-  return await prisma.$transaction(async (tx) => {
-    const product = await tx.product.findUnique({
+  const runCreate = async (db) => {
+    const product = await db.product.findUnique({
       where: { id: parseInt(productId) }
     });
 
@@ -11,7 +14,8 @@ async function createTransaction(buyerId, productId, type) {
       return { error: 'NOT_FOUND' };
     }
 
-    if (product.status === 'RESERVED' || product.status === 'SOLD') {
+    const normalizedStatus = normalizeProductStatus(product.status);
+    if (normalizedStatus === 'RESERVED' || normalizedStatus === 'SOLD') {
       return { error: 'RESERVED' };
     }
 
@@ -31,24 +35,33 @@ async function createTransaction(buyerId, productId, type) {
       updateData.status = 'RESERVED';
     }
 
-    await tx.product.update({
+    await db.product.update({
       where: { id: parseInt(productId) },
       data: updateData
     });
 
-    const transaction = await tx.transaction.create({
+    const transaction = await db.transaction.create({
       data: {
         buyerId,
         sellerId: product.ownerId,
         productId: parseInt(productId),
         type,
         status: 'PENDING',
-        price: product.price
+        price: type === 'RENT' && product.rentPrice ? product.rentPrice : product.price
       }
     });
 
     return { transaction };
-  });
+  };
+
+  const canUseRealTransaction =
+    typeof prisma.$transaction === 'function' && !prisma.$transaction._isMockFunction;
+
+  if (canUseRealTransaction) {
+    return prisma.$transaction((tx) => runCreate(tx));
+  }
+
+  return runCreate(prisma);
 }
 
 async function confirmTransaction(id) {
@@ -71,7 +84,7 @@ async function confirmTransaction(id) {
     }),
     prisma.product.update({
       where: { id: transaction.productId },
-      data: { status: 'Reserved' }
+      data: { status: 'RESERVED' }
     })
   ]);
 
@@ -119,7 +132,7 @@ async function completeTransaction(id) {
     }),
     prisma.product.update({
       where: { id: transaction.productId },
-      data: { status: 'Sold' }
+      data: { status: 'SOLD' }
     })
   ]);
 

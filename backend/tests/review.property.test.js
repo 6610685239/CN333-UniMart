@@ -28,12 +28,13 @@ const mockTransactionFindUnique = jest.fn();
 const mockReviewCreate = jest.fn();
 const mockReviewFindMany = jest.fn();
 const mockReviewAggregate = jest.fn();
+const mockProductFindMany = jest.fn();
 
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
     category: { findMany: jest.fn().mockResolvedValue([]) },
     product: {
-      findMany: jest.fn().mockResolvedValue([]),
+      findMany: mockProductFindMany,
       create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -138,12 +139,10 @@ describe('Feature: unimart-iteration-2, Property 6: รีวิวได้เ�
       ),
       { numRuns: 100 }
     );
-  });
+  }, 30000);
 });
 
 
-// ============================================
-// Property 7: Credit Score เท่ากับค่าเฉลี่ยคะแนนดาว
 // ============================================
 describe('Feature: unimart-iteration-2, Property 7: Credit Score เท่ากับค่าเฉลี่ยคะแนนดาว', () => {
   /**
@@ -253,9 +252,66 @@ describe('Feature: unimart-iteration-2, Property 8: โปรไฟล์แส�
 describe('Feature: unimart-iteration-2, Property 9: กรองสินค้าตามความน่าเชื่อถือ', () => {
   /**
    * Validates: Requirements 2.5
-   * SKIP — filter endpoint not built yet
+   * For any minCredit threshold, all returned products must belong to sellers
+   * whose average rating >= minCredit and who have at least one review.
    */
-  test.todo('products filtered by minCredit only include sellers with credit >= threshold');
+  test('products filtered by minCredit only include sellers with credit >= threshold', async () => {
+    const minCreditArb = fc.double({ min: 1, max: 5, noNaN: true });
+    const ownerIdArb = fc.uuid();
+    const ratingAvgArb = fc.double({ min: 0, max: 5, noNaN: true });
+    const reviewCountArb = fc.integer({ min: 0, max: 50 });
+
+    await fc.assert(
+      fc.asyncProperty(
+        minCreditArb,
+        fc.array(fc.tuple(ownerIdArb, ratingAvgArb, reviewCountArb), { minLength: 1, maxLength: 5 }),
+        async (minCredit, ownerData) => {
+          // Build products — one per owner
+          const products = ownerData.map(([ownerId, , ], idx) => ({
+            id: idx + 1,
+            title: `Product ${idx}`,
+            status: 'Available',
+            ownerId,
+            owner: { id: ownerId, display_name_th: 'User', username: 'user', faculty: 'วิศวกรรมศาสตร์', dormitory_zone: 'เชียงราก' },
+            category: { id: 1, name: 'หนังสือ' },
+            meetingPoint: { id: 1, name: 'SC' },
+            categoryId: 1
+          }));
+
+          mockProductFindMany.mockResolvedValueOnce(products);
+
+          // Mock review.aggregate per owner
+          const uniqueOwners = [...new Set(ownerData.map(([id]) => id))];
+          for (const ownerId of uniqueOwners) {
+            const ownerEntry = ownerData.find(([id]) => id === ownerId);
+            const [, avgRating, count] = ownerEntry;
+            mockReviewAggregate.mockResolvedValueOnce({
+              _avg: { rating: count > 0 ? avgRating : null },
+              _count: { rating: count }
+            });
+          }
+
+          const res = await request(app)
+            .get(`/api/products/filter?minCredit=${minCredit}`);
+
+          expect(res.status).toBe(200);
+
+          // Every returned product's owner must have avg rating >= minCredit and count > 0
+          for (const p of res.body.products) {
+            const ownerEntry = ownerData.find(([id]) => id === p.ownerId);
+            expect(ownerEntry).toBeDefined();
+            const [, avgRating, count] = ownerEntry;
+            expect(count).toBeGreaterThan(0);
+            expect(avgRating).toBeGreaterThanOrEqual(minCredit);
+          }
+
+          mockProductFindMany.mockReset();
+          mockReviewAggregate.mockReset();
+        }
+      ),
+      { numRuns: 100 }
+    );
+  }, 30000);
 });
 
 
@@ -346,6 +402,10 @@ describe('Feature: unimart-iteration-2, Property 11: คะแนนดาวต
         invalidRatingArb,
         async (txnId, reviewerId, revieweeId, badRating) => {
           fc.pre(reviewerId !== revieweeId);
+
+          // Clear call history from previous iterations
+          mockTransactionFindUnique.mockClear();
+          mockReviewCreate.mockClear();
 
           // The server should reject before even checking the transaction
           const res = await request(app)

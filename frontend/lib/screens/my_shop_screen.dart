@@ -117,7 +117,7 @@ class _MyShopScreenState extends State<MyShopScreen> {
   // ⭐ ฟังก์ชันสร้างการ์ดสินค้า (วางไว้ล่างสุดของคลาส _MyShopScreenState) ⭐
   Widget _buildProductCard(Product product) {
     String? firstImage = product.images.isNotEmpty
-        ? '${AppConfig.uploadsUrl}/${product.images[0]}'
+        ? (product.images[0].startsWith('http') ? product.images[0] : '${AppConfig.uploadsUrl}/${product.images[0]}')
         : null;
 
     // เช็คว่าเป็นของเช่าหรือไม่
