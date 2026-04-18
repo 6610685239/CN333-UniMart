@@ -16,6 +16,12 @@ async function create(req, res) {
     if (result.error === 'NOT_COMPLETED') {
       return res.status(403).json({ success: false, message: 'สามารถรีวิวได้เฉพาะธุรกรรมที่เสร็จสิ้นแล้ว' });
     }
+    if (result.error === 'NOT_PARTY') {
+      return res.status(403).json({ success: false, message: 'คุณไม่ใช่ผู้ซื้อหรือผู้ขายในธุรกรรมนี้' });
+    }
+    if (result.error === 'INVALID_REVIEWEE') {
+      return res.status(400).json({ success: false, message: 'ผู้ถูกรีวิวต้องเป็นอีกฝ่ายในธุรกรรม' });
+    }
 
     res.status(201).json(result.review);
   } catch (err) {
@@ -51,4 +57,15 @@ async function getCreditScore(req, res) {
   }
 }
 
-module.exports = { create, getUserReviews, getCreditScore };
+async function hasReviewed(req, res) {
+  const { transactionId, reviewerId } = req.params;
+  try {
+    const result = await reviewService.hasReviewed(transactionId, reviewerId);
+    res.json(result);
+  } catch (err) {
+    console.error('Has Reviewed Error:', err.message);
+    res.status(500).json({ success: false, message: 'ไม่สามารถตรวจสอบรีวิวได้' });
+  }
+}
+
+module.exports = { create, getUserReviews, getCreditScore, hasReviewed };

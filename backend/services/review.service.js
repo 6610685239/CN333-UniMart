@@ -13,6 +13,18 @@ async function createReview(transactionId, reviewerId, revieweeId, rating, comme
     return { error: 'NOT_COMPLETED' };
   }
 
+  // Validate reviewer is actually a party to this transaction
+  const isParty = (reviewerId === transaction.buyerId || reviewerId === transaction.sellerId);
+  if (!isParty) {
+    return { error: 'NOT_PARTY' };
+  }
+
+  // Validate reviewee is the other party
+  const expectedReviewee = reviewerId === transaction.buyerId ? transaction.sellerId : transaction.buyerId;
+  if (revieweeId !== expectedReviewee) {
+    return { error: 'INVALID_REVIEWEE' };
+  }
+
   const review = await prisma.review.create({
     data: {
       transactionId: parseInt(transactionId),
@@ -67,8 +79,21 @@ async function getCreditScore(userId) {
   };
 }
 
+async function hasReviewed(transactionId, reviewerId) {
+  const review = await prisma.review.findUnique({
+    where: {
+      transactionId_reviewerId: {
+        transactionId: parseInt(transactionId),
+        reviewerId
+      }
+    }
+  });
+  return { hasReviewed: !!review };
+}
+
 module.exports = {
   createReview,
   getUserReviews,
-  getCreditScore
+  getCreditScore,
+  hasReviewed
 };

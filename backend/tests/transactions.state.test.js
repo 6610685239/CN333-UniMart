@@ -29,6 +29,8 @@ jest.mock('@supabase/supabase-js', () => ({
 const mockTransactionFindUnique = jest.fn();
 const mockTransactionFindMany = jest.fn();
 const mockTransactionUpdate = jest.fn();
+const mockTransactionCount = jest.fn();
+const mockProductFindUnique = jest.fn();
 const mockProductUpdate = jest.fn();
 const mockPrismaTransaction = jest.fn();
 
@@ -38,7 +40,7 @@ jest.mock('@prisma/client', () => ({
     product: {
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
-      findUnique: jest.fn(),
+      findUnique: mockProductFindUnique,
       update: mockProductUpdate,
       delete: jest.fn()
     },
@@ -46,7 +48,8 @@ jest.mock('@prisma/client', () => ({
       create: jest.fn(),
       findUnique: mockTransactionFindUnique,
       findMany: mockTransactionFindMany,
-      update: mockTransactionUpdate
+      update: mockTransactionUpdate,
+      count: mockTransactionCount
     },
     users: { findUnique: jest.fn() },
     $transaction: mockPrismaTransaction
@@ -59,6 +62,9 @@ const { app } = require('../server');
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Default mocks for completeTransaction's extra queries
+  mockTransactionCount.mockResolvedValue(0);
+  mockProductFindUnique.mockResolvedValue({ id: 1, status: 'RESERVED', quantity: 0 });
 });
 
 const buyerId = '11111111-1111-1111-1111-111111111111';
@@ -226,6 +232,8 @@ describe('PATCH /api/transactions/:id/complete', () => {
     mockTransactionFindUnique.mockResolvedValue({
       id: 1, status: 'SHIPPING', productId: 10, buyerId, sellerId
     });
+    mockTransactionCount.mockResolvedValue(0);
+    mockProductFindUnique.mockResolvedValue({ id: 10, status: 'RESERVED', quantity: 0 });
 
     const updatedTx = { id: 1, status: 'COMPLETED', productId: 10, buyerId, sellerId };
     mockPrismaTransaction.mockResolvedValue([updatedTx, { id: 10, status: 'Sold' }]);

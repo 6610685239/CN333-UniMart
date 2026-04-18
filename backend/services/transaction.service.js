@@ -125,6 +125,22 @@ async function completeTransaction(id) {
     return { error: 'INVALID_STATUS', currentStatus: transaction.status };
   }
 
+  // Check if any other active transactions exist for this product
+  const otherActive = await prisma.transaction.count({
+    where: {
+      productId: transaction.productId,
+      id: { not: transaction.id },
+      status: { in: ['PENDING', 'PROCESSING', 'SHIPPING'] }
+    }
+  });
+
+  // Fetch product to check remaining quantity
+  const product = await prisma.product.findUnique({ where: { id: transaction.productId } });
+  const remainingQty = product ? product.quantity : 0;
+
+  // Only mark SOLD when no stock left and no other active transactions
+  const newProductStatus = (remainingQty <= 0 && otherActive === 0) ? 'SOLD' : product.status;
+
   const [updated] = await prisma.$transaction([
     prisma.transaction.update({
       where: { id: transaction.id },
@@ -132,7 +148,7 @@ async function completeTransaction(id) {
     }),
     prisma.product.update({
       where: { id: transaction.productId },
-      data: { status: 'SOLD' }
+      data: { status: newProductStatus }
     })
   ]);
 

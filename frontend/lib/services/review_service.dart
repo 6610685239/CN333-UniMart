@@ -72,4 +72,20 @@ class ReviewService {
       throw Exception('เชื่อมต่อ Server ไม่ได้: $e');
     }
   }
+
+  /// ตรวจสอบว่าผู้ใช้รีวิวธุรกรรมนี้แล้วหรือยัง
+  /// GET /api/reviews/check/:transactionId/:reviewerId
+  static Future<bool> hasReviewed(int transactionId, String reviewerId) async {
+    final url = Uri.parse('$baseUrl/reviews/check/$transactionId/$reviewerId');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['hasReviewed'] == true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

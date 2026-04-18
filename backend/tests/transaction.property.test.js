@@ -28,6 +28,7 @@ const mockTransactionCreate = jest.fn();
 const mockTransactionFindUnique = jest.fn();
 const mockTransactionFindMany = jest.fn();
 const mockTransactionUpdate = jest.fn();
+const mockTransactionCount = jest.fn();
 const mockProductFindUnique = jest.fn();
 const mockProductUpdate = jest.fn();
 const mockPrismaTransaction = jest.fn();
@@ -46,7 +47,8 @@ jest.mock('@prisma/client', () => ({
       create: mockTransactionCreate,
       findUnique: mockTransactionFindUnique,
       findMany: mockTransactionFindMany,
-      update: mockTransactionUpdate
+      update: mockTransactionUpdate,
+      count: mockTransactionCount
     },
     users: { findUnique: jest.fn() },
     $transaction: mockPrismaTransaction
@@ -70,6 +72,9 @@ const cancelReasonArb = fc.constantFrom('เปลี่ยนใจ', 'สิ�
 // Reset mocks before each test
 beforeEach(() => {
   jest.clearAllMocks();
+  // Default mocks for completeTransaction's extra queries
+  mockTransactionCount.mockResolvedValue(0);
+  mockProductFindUnique.mockResolvedValue({ id: 1, status: 'RESERVED', quantity: 0 });
 });
 
 // ============================================

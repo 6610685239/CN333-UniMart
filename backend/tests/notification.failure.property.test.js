@@ -44,7 +44,7 @@ jest.mock('@prisma/client', () => ({
     product: {
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
-      findUnique: jest.fn(),
+      findUnique: jest.fn().mockResolvedValue({ id: 1, status: 'RESERVED', quantity: 0 }),
       update: jest.fn(),
       delete: jest.fn()
     },
@@ -52,7 +52,8 @@ jest.mock('@prisma/client', () => ({
       create: jest.fn(),
       findUnique: mockTransactionFindUnique,
       findMany: jest.fn().mockResolvedValue([]),
-      update: mockTransactionUpdate
+      update: mockTransactionUpdate,
+      count: jest.fn().mockResolvedValue(0)
     },
     users: { findUnique: jest.fn() },
     $transaction: mockPrismaTransaction

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../services/transaction_service.dart';
 import 'review_screen.dart';
+import '../services/review_service.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Transaction transaction;
@@ -29,6 +30,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   void initState() {
     super.initState();
     _tx = widget.transaction;
+    _checkHasReviewed();
+  }
+
+  Future<void> _checkHasReviewed() async {
+    if (_tx.status == 'COMPLETED') {
+      final reviewed = await ReviewService.hasReviewed(_tx.id, widget.currentUserId);
+      if (mounted) setState(() => _hasReviewed = reviewed);
+    }
   }
 
   bool get isBuyer => _tx.buyerId == widget.currentUserId;
