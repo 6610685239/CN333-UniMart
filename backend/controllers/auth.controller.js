@@ -94,14 +94,14 @@ async function login(req, res) {
   try {
     const result = await authService.loginUser(username, password);
 
-    if (result.error === 'NOT_FOUND') {
-      return res.status(401).json({ success: false, message: 'ไม่พบบัญชีผู้ใช้ กรุณาลงทะเบียนก่อน' });
-    }
-    if (result.error === 'NO_PASSWORD') {
-      return res.status(401).json({ success: false, message: 'บัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน กรุณาลงทะเบียนใหม่' });
-    }
     if (result.error === 'WRONG_PASSWORD') {
-      return res.status(401).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง' });
+      return res.status(401).json({ success: false, message: 'รหัสนักศึกษาหรือรหัสผ่านไม่ถูกต้อง กรุณาใช้รหัสเดียวกับระบบ reg.tu.ac.th' });
+    }
+    if (result.error === 'TU_UNAVAILABLE') {
+      return res.status(503).json({ success: false, message: 'ไม่สามารถเชื่อมต่อระบบยืนยันตัวตนได้ กรุณาลองใหม่อีกครั้ง' });
+    }
+    if (result.error === 'TU_RATE_LIMIT') {
+      return res.status(429).json({ success: false, message: 'ระบบยืนยันตัวตนมีผู้ใช้งานมาก กรุณาลองใหม่ภายหลัง' });
     }
 
     res.json({ success: true, user: result.user, token: result.token });
@@ -176,4 +176,18 @@ async function getUserProfile(req, res) {
   }
 }
 
-module.exports = { verify, register, login, changePassword, uploadAvatar, getUserProfile };
+async function updateUserProfile(req, res) {
+  const { userId } = req.params;
+  const { phone_number, personal_email, dormitory_zone } = req.body;
+
+  try {
+    const user = await authService.updateUserProfile(userId, { phone_number, personal_email, dormitory_zone });
+    const { password_hash: _, ...safeUser } = user;
+    res.json({ success: true, user: safeUser });
+  } catch (err) {
+    console.error('Update Profile Error:', err.message);
+    res.status(500).json({ success: false, message: 'อัปเดตข้อมูลไม่สำเร็จ', error: err.message });
+  }
+}
+
+module.exports = { verify, register, login, changePassword, uploadAvatar, getUserProfile, updateUserProfile };

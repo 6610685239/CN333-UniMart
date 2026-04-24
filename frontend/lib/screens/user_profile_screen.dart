@@ -8,6 +8,7 @@ import '../config.dart';
 import 'my_shop_screen.dart';
 import 'transaction_list_screen.dart';
 import 'change_password_screen.dart';
+import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -189,6 +190,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             const SizedBox(height: 24),
 
             // ── Menu Items ──
+            _tile(Icons.edit_outlined, 'แก้ไขโปรไฟล์', 'เบอร์โทร, อีเมล, โซนหอพัก', () async {
+              final user = await AuthService.getUser();
+              if (user == null || !mounted) return;
+              await Navigator.push(context, MaterialPageRoute(
+                builder: (_) => EditProfileScreen(user: user)));
+            }),
             _tile(Icons.storefront_outlined, 'ร้านของฉัน', 'ดูสินค้าที่ลงขาย/ให้เช่า', () {
               Navigator.push(context, MaterialPageRoute(
                 builder: (_) => MyShopScreen(currentUserId: widget.userId)));

@@ -97,23 +97,66 @@ async function registerUser(userData) {
 }
 
 async function loginUser(username, password) {
-  const { data: user } = await supabase
+  // ยืนยันตัวตนผ่าน TU API
+  let tuData;
+  try {
+    tuData = await verifyTuApi(username, password);
+  } catch (err) {
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND') {
+      return { error: 'TU_UNAVAILABLE' };
+    }
+    if (err.response && err.response.status === 429) {
+      return { error: 'TU_RATE_LIMIT' };
+    }
+    throw err;
+  }
+
+  if (!tuData || tuData.status === false) {
+    return { error: 'WRONG_PASSWORD' };
+  }
+
+  const tuProfile = buildTuProfile(tuData);
+
+  // ค้นหาหรือสร้างบัญชีผู้ใช้อัตโนมัติ
+  let user;
+  const { data: existing } = await supabase
     .from('users')
     .select('*')
-    .eq('username', username)
+    .eq('username', tuProfile.username)
     .single();
 
-  if (!user) {
-    return { error: 'NOT_FOUND' };
-  }
-
-  if (!user.password_hash) {
-    return { error: 'NO_PASSWORD' };
-  }
-
-  const isMatch = await bcrypt.compare(password, user.password_hash);
-  if (!isMatch) {
-    return { error: 'WRONG_PASSWORD' };
+  if (existing) {
+    // อัปเดตข้อมูล TU ล่าสุด
+    const { data: updated } = await supabase
+      .from('users')
+      .update({
+        display_name_th: tuProfile.display_name_th,
+        display_name_en: tuProfile.display_name_en,
+        faculty: tuProfile.faculty,
+        department: tuProfile.department,
+        tu_status: tuProfile.tu_status,
+      })
+      .eq('username', tuProfile.username)
+      .select()
+      .single();
+    user = updated || existing;
+  } else {
+    // สร้างบัญชีใหม่อัตโนมัติ
+    const { data: created, error } = await supabase
+      .from('users')
+      .insert([{
+        username: tuProfile.username,
+        display_name_th: tuProfile.display_name_th,
+        display_name_en: tuProfile.display_name_en,
+        faculty: tuProfile.faculty,
+        department: tuProfile.department,
+        tu_status: tuProfile.tu_status,
+        phone_number: '',
+      }])
+      .select()
+      .single();
+    if (error) throw error;
+    user = created;
   }
 
   const token = jwt.sign(
@@ -172,6 +215,18 @@ async function getUserProfile(userId) {
   return user;
 }
 
+async function updateUserProfile(userId, { phone_number, personal_email, dormitory_zone }) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({ phone_number, personal_email, dormitory_zone })
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 module.exports = {
   verifyTuApi,
   findUserByUsername,
@@ -179,5 +234,6 @@ module.exports = {
   registerUser,
   loginUser,
   changePassword,
-  getUserProfile
+  getUserProfile,
+  updateUserProfile
 };
