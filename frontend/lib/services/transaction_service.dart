@@ -66,7 +66,20 @@ class TransactionService {
     }
   }
 
-  /// Buyer ยืนยันรับ (SHIPPING → COMPLETED)
+  /// Renter คืนของ — RENT only (SHIPPING → RETURNING)
+  /// PATCH /api/transactions/:id/return
+  static Future<Map<String, dynamic>> returnTransaction(int id) async {
+    final url = Uri.parse('$baseUrl/transactions/$id/return');
+    try {
+      final response = await http.patch(url,
+          headers: {'Content-Type': 'application/json'});
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': 'เชื่อมต่อ Server ไม่ได้: $e'};
+    }
+  }
+
+  /// Buyer/Owner ยืนยันเสร็จสิ้น (SHIPPING→COMPLETED for SALE, RETURNING→COMPLETED for RENT)
   /// PATCH /api/transactions/:id/complete
   static Future<Map<String, dynamic>> completeTransaction(int id) async {
     final url = Uri.parse('$baseUrl/transactions/$id/complete');

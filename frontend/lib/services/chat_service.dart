@@ -72,7 +72,14 @@ class ChatService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'userId': userId, 'isPinned': isPinned}),
     );
-    if (response.statusCode != 200) throw Exception('Failed to pin room');
+    if (response.statusCode != 200) {
+      String msg = 'Failed to pin room';
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        if (body['error'] != null) msg = body['error'].toString();
+      } catch (_) {}
+      throw Exception(msg);
+    }
   }
 
   static Future<void> deleteRoom(String roomId, String userId) async {

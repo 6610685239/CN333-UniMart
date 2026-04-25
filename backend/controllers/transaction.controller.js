@@ -26,6 +26,17 @@ async function create(req, res) {
     }
 
     res.status(201).json(result.transaction);
+
+    // Fire-and-forget notification to seller
+    try {
+      await notificationService.createNotification(
+        result.transaction.sellerId,
+        'transaction_update',
+        'New order!',
+        `Someone wants to buy your item`,
+        { transactionId: result.transaction.id }
+      );
+    } catch (_) {}
   } catch (err) {
     console.error('Create Transaction Error:', err.message);
     res.status(500).json({ success: false, message: 'ไม่สามารถสร้างธุรกรรมได้', error: err.message });
@@ -173,4 +184,36 @@ async function getUserTransactions(req, res) {
   }
 }
 
-module.exports = { create, confirm, ship, complete, cancel, getUserTransactions };
+async function returnItem(req, res) {
+  try {
+    const result = await transactionService.returnTransaction(req.params.id);
+
+    if (result.error === 'NOT_FOUND') {
+      return res.status(404).json({ success: false, message: 'ไม่พบธุรกรรม' });
+    }
+    if (result.error === 'NOT_RENT') {
+      return res.status(400).json({ success: false, message: 'ใช้ได้เฉพาะธุรกรรมประเภทเช่า' });
+    }
+    if (result.error === 'INVALID_STATUS') {
+      return res.status(400).json({ success: false, message: 'ไม่สามารถเปลี่ยนสถานะได้' });
+    }
+
+    res.json(result.transaction);
+
+    // Notify owner (seller) that item is being returned
+    try {
+      await notificationService.createNotification(
+        result.transaction.sellerId,
+        'transaction_update',
+        'Item being returned',
+        'The renter is returning your item',
+        { transactionId: result.transaction.id }
+      );
+    } catch (_) {}
+  } catch (err) {
+    console.error('Return Transaction Error:', err.message);
+    res.status(500).json({ success: false, message: 'ไม่สามารถอัปเดตสถานะได้', error: err.message });
+  }
+}
+
+module.exports = { create, confirm, ship, returnItem, complete, cancel, getUserTransactions };

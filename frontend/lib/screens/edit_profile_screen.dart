@@ -1,8 +1,41 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../services/auth_service.dart';
+import '../shared/theme/app_colors.dart';
+
+// ── Typography ────────────────────────────────────────────────────────────────
+
+TextStyle _jak({
+  double size = 14,
+  FontWeight weight = FontWeight.w400,
+  Color color = AppColors.ink,
+  double? height,
+}) =>
+    TextStyle(
+      fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+      fontFamilyFallback: const ['NotoSansThai'],
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+    );
+
+TextStyle _mono({
+  double size = 9,
+  Color color = AppColors.textMuted,
+  FontWeight weight = FontWeight.w500,
+}) =>
+    GoogleFonts.jetBrainsMono(
+      fontSize: size,
+      letterSpacing: 0.4,
+      color: color,
+      fontWeight: weight,
+    );
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -17,19 +50,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
   String? _selectedDormitoryZone;
-
   bool _isLoading = false;
 
-  final Color _primaryColor = const Color(0xFFFF6F61);
-  final Color _secondaryColor = const Color(0xFFF7C59F);
-
-  final List<String> _dormitoryZones = ['เชียงราก', 'อินเตอร์โซน', 'ในมหาวิทยาลัย'];
+  static const _dormZones = ['เชียงราก', 'อินเตอร์โซน', 'ในมหาวิทยาลัย'];
 
   @override
   void initState() {
     super.initState();
-    _phoneController = TextEditingController(text: widget.user['phone_number'] ?? '');
-    _emailController = TextEditingController(text: widget.user['personal_email'] ?? '');
+    _phoneController =
+        TextEditingController(text: widget.user['phone_number'] ?? '');
+    _emailController =
+        TextEditingController(text: widget.user['personal_email'] ?? '');
     _selectedDormitoryZone = widget.user['dormitory_zone'];
   }
 
@@ -43,17 +74,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _handleSave() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
-      _showSnackBar('กรุณากรอกเบอร์โทรศัพท์', Colors.orange);
+      _snack('กรุณากรอกเบอร์โทรศัพท์');
+      return;
+    }
+
+    final userId = widget.user['id'];
+    if (userId == null) {
+      _snack('ไม่พบข้อมูลผู้ใช้ กรุณา login ใหม่');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final url = Uri.parse('${AppConfig.baseUrl}/auth/${widget.user['id']}/profile');
+      final token = await AuthService.getToken();
+      final url =
+          Uri.parse('${AppConfig.baseUrl}/auth/$userId/profile');
       final response = await http.patch(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
           'phone_number': phone,
           'personal_email': _emailController.text.trim(),
@@ -61,152 +103,246 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }),
       );
 
-      final data = jsonDecode(response.body);
-
       if (!mounted) return;
       setState(() => _isLoading = false);
 
+      if (response.statusCode != 200) {
+        _snack('HTTP ${response.statusCode}: ${response.body}');
+        return;
+      }
+      final data = jsonDecode(response.body);
       if (data['success'] == true) {
-        // Update local user data
-        final updatedUser = Map<String, dynamic>.from(widget.user);
-        updatedUser['phone_number'] = phone;
-        updatedUser['personal_email'] = _emailController.text.trim();
-        updatedUser['dormitory_zone'] = _selectedDormitoryZone;
-        await AuthService.saveUser(updatedUser);
-
-        _showSnackBar('อัปเดตข้อมูลสำเร็จ', Colors.green);
-        if (mounted) Navigator.pop(context, updatedUser);
+        final updated = Map<String, dynamic>.from(widget.user)
+          ..['phone_number'] = phone
+          ..['personal_email'] = _emailController.text.trim()
+          ..['dormitory_zone'] = _selectedDormitoryZone;
+        await AuthService.saveUser(updated);
+        if (mounted) Navigator.pop(context, updated);
       } else {
-        _showSnackBar(data['message'] ?? 'เกิดข้อผิดพลาด', Colors.red);
+        _snack(data['message'] ?? 'เกิดข้อผิดพลาด');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        _showSnackBar('เชื่อมต่อ Server ไม่ได้', Colors.red);
+        _snack('Error: $e');
       }
     }
   }
 
-  void _showSnackBar(String message, Color color) {
+  void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
+      SnackBar(
+        content: Text(msg, style: _jak(size: 13, color: Colors.white)),
+        backgroundColor: AppColors.ink,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('แก้ไขโปรไฟล์',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Read-only TU info
-            const Text('ข้อมูลจาก TU (แก้ไขไม่ได้)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 12),
-            _buildReadOnly(Icons.badge_outlined, 'รหัสนักศึกษา', widget.user['username']),
-            const SizedBox(height: 10),
-            _buildReadOnly(Icons.person_outline, 'ชื่อ-นามสกุล',
-                widget.user['display_name_th'] ?? widget.user['display_name_en']),
-            const SizedBox(height: 10),
-            _buildReadOnly(Icons.school_outlined, 'คณะ', widget.user['faculty']),
-
-            const SizedBox(height: 28),
-
-            // Editable info
-            const Text('ข้อมูลที่แก้ไขได้',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 12),
-
-            _buildTextField(
-              controller: _phoneController,
-              icon: Icons.phone_iphone_rounded,
-              hint: 'เบอร์โทรศัพท์ (จำเป็น)',
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 12),
-
-            _buildTextField(
-              controller: _emailController,
-              icon: Icons.email_outlined,
-              hint: 'อีเมลส่วนตัว (ไม่จำเป็น)',
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 12),
-
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: DropdownButtonFormField<String>(
-                value: _selectedDormitoryZone,
-                decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.location_on_outlined, color: Colors.grey[500]),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                ),
-                hint: Text('เลือกโซนหอพัก', style: TextStyle(color: Colors.grey[400])),
-                isExpanded: true,
-                items: _dormitoryZones
-                    .map((z) => DropdownMenuItem(value: z, child: Text(z)))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedDormitoryZone = v),
-              ),
-            ),
-
-            const SizedBox(height: 36),
-
-            // Save button
-            Container(
-              width: double.infinity,
-              height: 55,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_secondaryColor, _primaryColor],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: _primaryColor.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
+            // ── Header ──────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      margin: const EdgeInsets.only(left: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        shape: BoxShape.circle,
+                        border:
+                            Border.all(color: AppColors.border, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.arrow_back_ios_new_rounded,
+                          size: 16, color: AppColors.ink),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Edit Profile',
+                    style: GoogleFonts.sriracha(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                      height: 1.0,
+                    ),
                   ),
                 ],
               ),
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'บันทึก',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                        ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Body ────────────────────────────────────────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding:
+                    EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomPad),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── TU Info (read-only) ──────────────────────────────
+                    _sectionLabel('TU Information', locked: true),
+                    const SizedBox(height: 10),
+                    _readOnlyCard([
+                      _ReadOnlyRow(
+                        icon: Icons.badge_outlined,
+                        label: 'Student ID',
+                        value: widget.user['username'] ?? '-',
                       ),
+                      _ReadOnlyRow(
+                        icon: Icons.person_outline,
+                        label: 'Name',
+                        value: widget.user['display_name_th'] ??
+                            widget.user['display_name_en'] ??
+                            '-',
+                      ),
+                      _ReadOnlyRow(
+                        icon: Icons.school_outlined,
+                        label: 'Faculty',
+                        value: widget.user['faculty'] ?? '-',
+                        last: true,
+                      ),
+                    ]),
+
+                    const SizedBox(height: 24),
+
+                    // ── Editable ─────────────────────────────────────────
+                    _sectionLabel('Your Details'),
+                    const SizedBox(height: 10),
+
+                    _inputField(
+                      controller: _phoneController,
+                      icon: Icons.phone_iphone_rounded,
+                      label: 'Phone number',
+                      hint: '08x-xxx-xxxx',
+                      keyboard: TextInputType.phone,
+                      required: true,
+                    ),
+                    const SizedBox(height: 10),
+
+                    _inputField(
+                      controller: _emailController,
+                      icon: Icons.email_outlined,
+                      label: 'Personal email',
+                      hint: 'Optional',
+                      keyboard: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Dormitory zone picker
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: AppColors.border, width: 1.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(14, 10, 14, 4),
+                            child: Text('Dormitory zone',
+                                style: _mono(
+                                    size: 10,
+                                    color: AppColors.textMuted,
+                                    weight: FontWeight.w600)),
+                          ),
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(10, 0, 10, 4),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedDormitoryZone,
+                                isExpanded: true,
+                                hint: Text('Select zone',
+                                    style: _jak(
+                                        size: 14,
+                                        color: AppColors.textHint)),
+                                style: _jak(size: 14, color: AppColors.ink),
+                                dropdownColor: AppColors.surface,
+                                icon: const Icon(Icons.keyboard_arrow_down,
+                                    size: 20, color: AppColors.textMuted),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: null,
+                                    child: Text('— ไม่ระบุ —',
+                                        style: _jak(
+                                            size: 14,
+                                            color: AppColors.textHint)),
+                                  ),
+                                  ..._dormZones.map(
+                                    (z) => DropdownMenuItem(
+                                      value: z,
+                                      child: Text(z),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => _selectedDormitoryZone = v),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // ── Save button ───────────────────────────────────────
+                    GestureDetector(
+                      onTap: _isLoading ? null : _handleSave,
+                      child: Container(
+                        width: double.infinity,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: _isLoading
+                              ? AppColors.border
+                              : AppColors.ink,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        alignment: Alignment.center,
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                'Save changes',
+                                style: _jak(
+                                  size: 15,
+                                  weight: FontWeight.w700,
+                                  color: AppColors.surface,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -215,57 +351,149 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required IconData icon,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
+  // ── Section label ──────────────────────────────────────────────────────────
+
+  Widget _sectionLabel(String text, {bool locked = false}) {
+    return Row(
+      children: [
+        Text(text,
+            style: _jak(size: 13, weight: FontWeight.w700,
+                color: AppColors.ink)),
+        if (locked) ...[
+          const SizedBox(width: 6),
+          const Icon(Icons.lock_outline, size: 13, color: AppColors.textMuted),
+        ],
+      ],
+    );
+  }
+
+  // ── Read-only card ─────────────────────────────────────────────────────────
+
+  Widget _readOnlyCard(List<_ReadOnlyRow> rows) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(30),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 1.5),
       ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Colors.grey[500]),
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[400]),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        ),
+      child: Column(
+        children: rows.map((r) {
+          return Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(r.icon, size: 18, color: AppColors.textMuted),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(r.label,
+                              style: _mono(
+                                  size: 9,
+                                  color: AppColors.textMuted,
+                                  weight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(r.value,
+                              style: _jak(
+                                  size: 14,
+                                  weight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!r.last)
+                Divider(height: 1, color: AppColors.divider,
+                    indent: 44, endIndent: 0),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildReadOnly(IconData icon, String label, String? value) {
+  // ── Input field ────────────────────────────────────────────────────────────
+
+  Widget _inputField({
+    required TextEditingController controller,
+    required IconData icon,
+    required String label,
+    required String hint,
+    TextInputType keyboard = TextInputType.text,
+    bool required = false,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.grey[200]!),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 1.5),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.grey[400], size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: Row(
               children: [
-                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                Text(value ?? '-',
-                    style: const TextStyle(fontSize: 15, color: Colors.black87)),
+                Text(label,
+                    style: _mono(
+                        size: 10,
+                        color: AppColors.textMuted,
+                        weight: FontWeight.w600)),
+                if (required)
+                  Text(' *',
+                      style: _mono(
+                          size: 10,
+                          color: AppColors.accent,
+                          weight: FontWeight.w700)),
               ],
             ),
           ),
-          const Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+          Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: Icon(icon, size: 18, color: AppColors.textMuted),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboard,
+                  style: _jak(size: 14),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle:
+                        _jak(size: 14, color: AppColors.textHint),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.fromLTRB(10, 6, 14, 12),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
+// ── Read-only row data ─────────────────────────────────────────────────────────
+
+class _ReadOnlyRow {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool last;
+  const _ReadOnlyRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.last = false,
+  });
+}

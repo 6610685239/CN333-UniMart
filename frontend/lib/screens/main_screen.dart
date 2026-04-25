@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'home_screen.dart';
-import 'my_shop_screen.dart';
 import 'chat_list_screen.dart';
 import 'notification_screen.dart';
-import 'transaction_list_screen.dart';
 import 'add_product_screen.dart';
 import 'user_profile_screen.dart';
 import 'login_screen.dart';
 import '../pages/favourited_page.dart';
 import '../services/notification_service.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/bottom_nav.dart';
 
 class MainScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -21,34 +23,16 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  static const Color _primaryColor = Color(0xFFFF6F61);
-
   int _selectedIndex = 0;
-  late final String currentUserId;
-  late final List<Widget> _pages;
+  late final String _userId;
   int _unreadNotificationCount = 0;
   Timer? _notificationTimer;
 
   @override
   void initState() {
     super.initState();
-    currentUserId = widget.user['id'].toString();
-
-    _pages = [
-      HomeScreen(currentUserId: currentUserId),
-      ChatListScreen(userId: currentUserId),
-      const SizedBox(), // placeholder for Sell (handled via navigation)
-      const FavouritedPage(),
-      UserProfileScreen(
-        userId: currentUserId,
-        displayName: widget.user['display_name_th'] ?? widget.user['username'] ?? '',
-        faculty: widget.user['faculty'] ?? '',
-        tuStatus: widget.user['tu_status'] ?? '',
-      ),
-    ];
-
+    _userId = widget.user['id'].toString();
     _fetchUnreadCount();
-    // Poll unread count every 30 seconds
     _notificationTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _fetchUnreadCount(),
@@ -63,22 +47,17 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _fetchUnreadCount() async {
     try {
-      final count = await NotificationService.getUnreadCount(currentUserId);
-      if (mounted) {
-        setState(() => _unreadNotificationCount = count);
-      }
-    } catch (_) {
-      // Silently fail — badge just won't update
-    }
+      final count = await NotificationService.getUnreadCount(_userId);
+      if (mounted) setState(() => _unreadNotificationCount = count);
+    } catch (_) {}
   }
 
   void _onItemTapped(int index) {
     if (index == 2) {
-      // Sell — navigate to AddProductScreen
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => AddProductScreen(userId: currentUserId),
+          builder: (_) => AddProductScreen(userId: _userId),
         ),
       );
       return;
@@ -86,117 +65,118 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _selectedIndex = index);
   }
 
-  void _handleLogout() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
-  }
-
-  void _openNotifications() async {
+  Future<void> _openNotifications() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => NotificationScreen(userId: currentUserId),
+        builder: (_) => NotificationScreen(userId: _userId),
       ),
     );
     _fetchUnreadCount();
   }
 
-  void _openTransactions() {
-    Navigator.push(
+  void _handleLogout() {
+    Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (context) => TransactionListScreen(userId: currentUserId),
-      ),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
+  }
+
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return HomeScreen(
+          currentUserId: _userId,
+          unreadNotificationCount: _unreadNotificationCount,
+          onNotificationTap: _openNotifications,
+        );
+      case 1:
+        return ChatListScreen(userId: _userId);
+      case 3:
+        return FavouritedPage(
+          currentUserId: _userId,
+          onExplore: () => _onItemTapped(0),
+        );
+      case 4:
+        return UserProfileScreen(
+          userId: _userId,
+          displayName: widget.user['display_name_th'] ??
+              widget.user['username'] ??
+              '',
+          faculty: widget.user['faculty'] ?? '',
+          tuStatus: widget.user['tu_status'] ?? '',
+          unreadNotificationCount: _unreadNotificationCount,
+          joinedAt: widget.user['created_at']?.toString(),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('UniMart', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          // Notification icon with badge
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: Colors.black),
-                onPressed: _openNotifications,
-                tooltip: 'แจ้งเตือน',
-              ),
-              if (_unreadNotificationCount > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: _primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                    child: Text(
-                      _unreadNotificationCount > 99
-                          ? '99+'
-                          : '$_unreadNotificationCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+    // Show a minimal AppBar only for non-home tabs (chat, saved, profile)
+    // Home tab has its own header with the wordmark + notification bell.
+    // Chat tab (1) has its own "Chats" header — don't stack UniMart bar on top
+    final showAppBar = _selectedIndex != 0 && _selectedIndex != 1 && _selectedIndex != 3 && _selectedIndex != 4;
+
+    return Theme(
+      data: AppTheme.theme,
+      child: Scaffold(
+        backgroundColor: AppColors.bg,
+        extendBody: true,
+        appBar: showAppBar
+            ? AppBar(
+                backgroundColor: AppColors.surface,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                title: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'U',
+                      style: GoogleFonts.sriracha(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                        height: 1.0,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                  ),
+                    Text(
+                      'nimart',
+                      style: GoogleFonts.sriracha(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                        height: 1.0,
+                      ),
+                    ),
+                    Text(
+                      '.',
+                      style: GoogleFonts.sriracha(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accent,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
-          // Logout button
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.black),
-            onPressed: _handleLogout,
-            tooltip: 'ออกจากระบบ',
-          ),
-        ],
-      ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        selectedItemColor: _primaryColor,
-        unselectedItemColor: Colors.grey,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline, size: 32),
-            activeIcon: Icon(Icons.add_circle, size: 32),
-            label: 'Sell',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            activeIcon: Icon(Icons.favorite),
-            label: 'Favourites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+                actions: const [],
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(1),
+                  child: Container(
+                      height: 1, color: AppColors.divider),
+                ),
+              )
+            : null,
+        body: _buildPage(_selectedIndex),
+        bottomNavigationBar: BottomNav(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+        ),
       ),
     );
   }

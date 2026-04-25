@@ -1,16 +1,23 @@
 import 'dart:io';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/filter_service.dart';
 import '../config.dart';
-import 'package:dotted_border/dotted_border.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
 import 'my_shop_screen.dart';
-import 'package:image_cropper/image_cropper.dart';
+import 'dart:convert';
+
+// ─────────────────────────────────────────────────────────────
+// Entry point
+// ─────────────────────────────────────────────────────────────
 
 class AddProductScreen extends StatefulWidget {
   final String userId;
@@ -22,784 +29,1448 @@ class AddProductScreen extends StatefulWidget {
 }
 
 class _AddProductScreenState extends State<AddProductScreen> {
-  final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-  String _selectedType = 'SALE';
+  // ── Step 0 = intro, 1 = form, 2 = preview ──
+  int _step = 0;
 
-  // Controllers
+  // ── Form state ──
+  String _type = 'SALE';
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
   final _quantityCtrl = TextEditingController(text: '1');
-
   String _selectedCondition = 'มือหนึ่ง';
   String? _selectedCategoryId;
+  String? _selectedCategoryName;
+  String? _selectedMeetingPointId;
+  String? _selectedMeetingPointName;
+  List<XFile> _images = [];
 
-  List<dynamic> _categories = [];
-  List<XFile> _selectedImages = [];
+  // ── Remote data ──
+  List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _meetingPoints = [];
+
+  bool _isSubmitting = false;
+  final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
-  // Meeting points
-  List<Map<String, dynamic>> _meetingPoints = [];
-  String? _selectedMeetingPointId;
+  final List<String> _conditions = ['มือหนึ่ง', 'มือสอง (สภาพดี)', 'มือสอง (มีตำหนิ)'];
 
   @override
   void initState() {
     super.initState();
-    _fetchCategories();
-    _fetchMeetingPoints();
+    _loadData();
   }
 
-  Future<void> _fetchCategories() async {
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _priceCtrl.dispose();
+    _quantityCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
     try {
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/categories'),
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          _categories = data;
-          if (_categories.isNotEmpty) {
-            _selectedCategoryId = _categories[0]['id'].toString();
-          } else {
-            _selectedCategoryId = null;
-          }
-        });
+      final res = await http.get(Uri.parse('${AppConfig.baseUrl}/categories'));
+      if (res.statusCode == 200) {
+        final list = List<Map<String, dynamic>>.from(jsonDecode(res.body));
+        if (mounted) {
+          setState(() {
+            _categories = list;
+            if (list.isNotEmpty) {
+              _selectedCategoryId = list[0]['id'].toString();
+              _selectedCategoryName = list[0]['name'];
+            }
+          });
+        }
       }
-    } catch (e) {
-      print("Error loading categories: $e");
-    }
-  }
-
-  Future<void> _fetchMeetingPoints() async {
+    } catch (_) {}
     try {
       final points = await FilterService.getMeetingPoints();
-      if (mounted) {
-        setState(() {
-          _meetingPoints = points;
-        });
-      }
-    } catch (e) {
-      print("Error loading meeting points: $e");
-    }
+      if (mounted) setState(() => _meetingPoints = points);
+    } catch (_) {}
+    await _loadDraft();
+  }
+
+  String get _draftKey => 'product_draft_${widget.userId}';
+
+  Future<void> _saveDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = {
+      'type': _type,
+      'title': _titleCtrl.text,
+      'desc': _descCtrl.text,
+      'price': _priceCtrl.text,
+      'quantity': _quantityCtrl.text,
+      'condition': _selectedCondition,
+      'categoryId': _selectedCategoryId ?? '',
+      'categoryName': _selectedCategoryName ?? '',
+      'meetingPointId': _selectedMeetingPointId ?? '',
+      'meetingPointName': _selectedMeetingPointName ?? '',
+      if (!kIsWeb)
+        'imagePaths': _images.map((f) => f.path).toList(),
+    };
+    await prefs.setString(_draftKey, jsonEncode(data));
+    if (mounted) _snack('Draft saved');
+  }
+
+  Future<void> _loadDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_draftKey);
+    if (raw == null || !mounted) return;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      setState(() {
+        _type = data['type'] ?? _type;
+        _titleCtrl.text = data['title'] ?? '';
+        _descCtrl.text = data['desc'] ?? '';
+        _priceCtrl.text = data['price'] ?? '';
+        _quantityCtrl.text = data['quantity'] ?? '1';
+        _selectedCondition = data['condition'] ?? _selectedCondition;
+        if ((data['categoryId'] as String).isNotEmpty) {
+          _selectedCategoryId = data['categoryId'];
+          _selectedCategoryName = data['categoryName'];
+        }
+        if ((data['meetingPointId'] as String).isNotEmpty) {
+          _selectedMeetingPointId = data['meetingPointId'];
+          _selectedMeetingPointName = data['meetingPointName'];
+        }
+        if (!kIsWeb && data['imagePaths'] != null) {
+          final paths = List<String>.from(data['imagePaths'] as List);
+          _images = paths
+              .where((p) => File(p).existsSync())
+              .map((p) => XFile(p))
+              .toList();
+        }
+        // If a draft exists, skip the intro step
+        if (_titleCtrl.text.isNotEmpty) _step = 1;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _clearDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftKey);
   }
 
   Future<void> _pickImages() async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage();
-
-      if (images.isNotEmpty) {
-        for (var img in images) {
-          if (_selectedImages.length >= 5) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("ใส่รูปได้สูงสุด 5 รูปเท่านั้นครับ")),
+      final picked = await _picker.pickMultiImage();
+      for (final img in picked) {
+        if (_images.length >= 5) break;
+        if (kIsWeb) {
+          setState(() => _images.add(img));
+        } else {
+          try {
+            final cropped = await ImageCropper().cropImage(
+              sourcePath: img.path,
+              uiSettings: [
+                AndroidUiSettings(
+                  toolbarTitle: 'Crop image',
+                  toolbarColor: AppColors.ink,
+                  toolbarWidgetColor: Colors.white,
+                  initAspectRatio: CropAspectRatioPreset.square,
+                  lockAspectRatio: false,
+                ),
+                IOSUiSettings(title: 'Crop image'),
+              ],
             );
-            break;
-          }
-
-          // บน web ข้าม cropper เพราะ image_cropper ไม่รองรับ web
-          if (kIsWeb) {
-            setState(() => _selectedImages.add(img));
-          } else {
-            try {
-              CroppedFile? croppedFile = await ImageCropper().cropImage(
-                sourcePath: img.path,
-                uiSettings: [
-                  AndroidUiSettings(
-                    toolbarTitle: 'ปรับขนาดรูปภาพ',
-                    toolbarColor: Colors.black,
-                    toolbarWidgetColor: Colors.white,
-                    initAspectRatio: CropAspectRatioPreset.square,
-                    lockAspectRatio: false,
-                    aspectRatioPresets: [
-                      CropAspectRatioPreset.square,
-                      CropAspectRatioPreset.ratio4x3,
-                      CropAspectRatioPreset.original,
-                    ],
-                  ),
-                  IOSUiSettings(
-                    title: 'ปรับขนาดรูปภาพ',
-                    cancelButtonTitle: 'ยกเลิก',
-                    doneButtonTitle: 'เสร็จสิ้น',
-                    aspectRatioPresets: [
-                      CropAspectRatioPreset.square,
-                      CropAspectRatioPreset.ratio4x3,
-                      CropAspectRatioPreset.original,
-                    ],
-                  ),
-                ],
-              );
-              if (croppedFile != null) {
-                setState(() => _selectedImages.add(XFile(croppedFile.path)));
-              } else {
-                // ผู้ใช้กดยกเลิก cropper → ใช้รูปต้นฉบับ
-                setState(() => _selectedImages.add(img));
-              }
-            } catch (cropError) {
-              // cropper ไม่รองรับแพลตฟอร์มนี้ → ใช้รูปต้นฉบับ
-              print('Cropper error (using original): $cropError');
-              setState(() => _selectedImages.add(img));
-            }
+            setState(() => _images.add(
+                  cropped != null ? XFile(cropped.path) : img,
+                ));
+          } catch (_) {
+            setState(() => _images.add(img));
           }
         }
       }
-    } catch (e) {
-      print("Error picking/cropping images: $e");
-    }
+    } catch (_) {}
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("กรุณากรอกข้อมูลให้ครบถ้วน")),
-      );
+    if (!_formKey.currentState!.validate()) return;
+    if (_images.isEmpty) {
+      _snack('Please add at least 1 photo');
       return;
     }
 
-    if (_selectedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("กรุณาใส่รูปอย่างน้อย 1 รูป")),
-      );
-      return;
-    }
-
-    if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("กรุณาเลือกหมวดหมู่")));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
+    setState(() => _isSubmitting = true);
     try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${AppConfig.baseUrl}/products'),
-      );
+      final req = http.MultipartRequest(
+          'POST', Uri.parse('${AppConfig.baseUrl}/products'));
 
-      request.fields['title'] = _titleCtrl.text;
-      request.fields['description'] = _descCtrl.text;
-      request.fields['type'] = _selectedType;
-      if (_selectedType == 'SALE') {
-        request.fields['price'] = _priceCtrl.text;
-        // ไม่ต้องส่ง rentPrice
+      req.fields['title'] = _titleCtrl.text.trim();
+      req.fields['description'] = _descCtrl.text.trim();
+      req.fields['type'] = _type;
+      req.fields['condition'] = _selectedCondition;
+      req.fields['categoryId'] = _selectedCategoryId!;
+      req.fields['ownerId'] = widget.userId;
+      req.fields['quantity'] = _quantityCtrl.text.trim();
+
+      if (_type == 'SALE') {
+        req.fields['price'] = _priceCtrl.text.trim();
       } else {
-        request.fields['price'] = '0'; // ถ้าเป็นของเช่า ให้ราคาขายหลักเป็น 0
-        request.fields['rentPrice'] =
-            _priceCtrl.text; // เอาตัวเลขไปใส่ช่องราคาเช่าแทน
+        req.fields['price'] = '0';
+        req.fields['rentPrice'] = _priceCtrl.text.trim();
       }
-      // request.fields['price'] = _priceCtrl.text;
-      request.fields['condition'] = _selectedCondition;
-      request.fields['categoryId'] = _selectedCategoryId!;
-      request.fields['location'] = _locationCtrl.text;
-      request.fields['ownerId'] = widget.userId.toString();
 
       if (_selectedMeetingPointId != null) {
-        request.fields['meetingPointId'] = _selectedMeetingPointId!;
+        req.fields['meetingPointId'] = _selectedMeetingPointId!;
       }
 
-      request.fields['quantity'] = _quantityCtrl.text;
-
-      for (var file in _selectedImages) {
+      for (final file in _images) {
         final bytes = await file.readAsBytes();
-        // Ensure filename has proper extension for multer
-        final fileName = file.name.contains('.') ? file.name : '${file.name}.jpg';
-        final ext = fileName.split('.').last.toLowerCase();
-        final mimeSubtype = (ext == 'png') ? 'png' : (ext == 'gif') ? 'gif' : 'jpeg';
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'images',
-            bytes,
-            filename: fileName,
-            contentType: MediaType('image', mimeSubtype),
-          ),
-        );
+        final name = file.name.contains('.') ? file.name : '${file.name}.jpg';
+        final ext = name.split('.').last.toLowerCase();
+        final mime = ext == 'png' ? 'png' : ext == 'gif' ? 'gif' : 'jpeg';
+        req.files.add(http.MultipartFile.fromBytes('images', bytes,
+            filename: name, contentType: MediaType('image', mime)));
       }
 
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      final streamed = await req.send();
+      final res = await http.Response.fromStream(streamed);
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("ลงขายสำเร็จ!")));
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MyShopScreen(currentUserId: widget.userId),
-            ),
-          );
-        }
+      if (!mounted) return;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        await _clearDraft();
+        _snack('Listed successfully!');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (_) => MyShopScreen(currentUserId: widget.userId)),
+        );
       } else {
-        throw Exception("Server Error: ${response.body}");
+        _snack('Error: ${res.statusCode}');
       }
     } catch (e) {
-      print("Submit Error: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("เกิดข้อผิดพลาด: $e")));
-      }
+      _snack('Something went wrong');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  // ⭐ ฟังก์ชันช่วยสร้างกล่องครอบช่อง input แบบในภาพ ⭐
-  Widget _buildFieldContainer({required String label, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
-          decoration: BoxDecoration(
-            color: Colors.white, // สีพื้นหลังเทาอ่อน
-            border: Border.all(color: Colors.grey[400]!), // ขอบสีเทา
-            borderRadius: BorderRadius.circular(4), // ขอบมน
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Build
+  // ─────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: _buildAppBar(),
+      body: switch (_step) {
+        0 => _SellIntro(
+            selectedType: _type,
+            onSelect: (t) => setState(() {
+              _type = t;
+              _step = 1;
+            }),
           ),
-          child: child,
+        1 => _SellForm(
+            formKey: _formKey,
+            type: _type,
+            images: _images,
+            onPickImages: _pickImages,
+            onRemoveImage: (img) => setState(() => _images.remove(img)),
+            titleCtrl: _titleCtrl,
+            descCtrl: _descCtrl,
+            priceCtrl: _priceCtrl,
+            quantityCtrl: _quantityCtrl,
+            conditions: _conditions,
+            selectedCondition: _selectedCondition,
+            onConditionChanged: (c) => setState(() => _selectedCondition = c),
+            categories: _categories,
+            selectedCategoryId: _selectedCategoryId,
+            onCategoryChanged: (id, name) => setState(() {
+              _selectedCategoryId = id;
+              _selectedCategoryName = name;
+            }),
+            meetingPoints: _meetingPoints,
+            selectedMeetingPointId: _selectedMeetingPointId,
+            onMeetingPointChanged: (id, name) => setState(() {
+              _selectedMeetingPointId = id;
+              _selectedMeetingPointName = name;
+            }),
+            onSaveDraft: _saveDraft,
+            onPreview: () {
+              if (_formKey.currentState!.validate()) {
+                setState(() => _step = 2);
+              }
+            },
+          ),
+        _ => _SellPreview(
+            type: _type,
+            title: _titleCtrl.text,
+            price: _priceCtrl.text,
+            quantity: _quantityCtrl.text,
+            condition: _selectedCondition,
+            categoryName: _selectedCategoryName ?? '',
+            description: _descCtrl.text,
+            meetingPoint: _selectedMeetingPointName ?? '',
+            images: _images,
+            isSubmitting: _isSubmitting,
+            onPublish: _submit,
+          ),
+      },
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    final titles = ['List an item', 'Item details', 'Preview'];
+    final subs = ['', 'Step 1 / 2', 'Step 2 / 2'];
+
+    return AppBar(
+      backgroundColor: AppColors.bg,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: AppColors.ink),
+        onPressed: () {
+          if (_step == 0) {
+            Navigator.pop(context);
+          } else {
+            setState(() => _step--);
+          }
+        },
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _step == 1
+                ? '${_type == 'SALE' ? 'For sale' : 'For rent'} · ${subs[_step]}'
+                : titles[_step],
+            style: GoogleFonts.sriracha(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+              height: 1.1,
+            ),
+          ),
+          if (subs[_step].isNotEmpty && _step != 1)
+            Text(
+              subs[_step],
+              style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+            ),
+        ],
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Divider(height: 1, color: AppColors.divider),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Step 0 — Sell Intro
+// ─────────────────────────────────────────────────────────────
+
+class _SellIntro extends StatelessWidget {
+  final String selectedType;
+  final ValueChanged<String> onSelect;
+
+  const _SellIntro({required this.selectedType, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'What are you listing?',
+            style: AppTextStyles.bodyS.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 14),
+
+          // For sale card
+          _TypeCard(
+            icon: '฿',
+            title: 'For sale',
+            subtitle: 'Sell once · buyer takes it home',
+            accent: true,
+            onTap: () => onSelect('SALE'),
+          ),
+          const SizedBox(height: 12),
+
+          // For rent card
+          _TypeCard(
+            icon: '↻',
+            title: 'For rent',
+            subtitle: 'Daily/weekly rate · item comes back',
+            accent: false,
+            onTap: () => onSelect('RENT'),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeCard extends StatelessWidget {
+  final String icon;
+  final String title;
+  final String subtitle;
+  final bool accent;
+  final VoidCallback onTap;
+
+  const _TypeCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: accent ? AppColors.accentSoft : AppColors.surface,
+          border: Border.all(color: AppColors.border, width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accent ? AppColors.accent : AppColors.surface,
+                border: Border.all(color: AppColors.border, width: 1.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                icon,
+                style: TextStyle(
+                  fontSize: accent ? 22 : 18,
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700, color: AppColors.ink)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textMuted)),
+                ],
+              ),
+            ),
+            Text('→',
+                style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Step 1 — Sell Form
+// ─────────────────────────────────────────────────────────────
+
+class _SellForm extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final String type;
+  final List<XFile> images;
+  final VoidCallback onPickImages;
+  final ValueChanged<XFile> onRemoveImage;
+  final TextEditingController titleCtrl;
+  final TextEditingController descCtrl;
+  final TextEditingController priceCtrl;
+  final TextEditingController quantityCtrl;
+  final List<String> conditions;
+  final String selectedCondition;
+  final ValueChanged<String> onConditionChanged;
+  final List<Map<String, dynamic>> categories;
+  final String? selectedCategoryId;
+  final void Function(String id, String name) onCategoryChanged;
+  final List<Map<String, dynamic>> meetingPoints;
+  final String? selectedMeetingPointId;
+  final void Function(String id, String name) onMeetingPointChanged;
+  final VoidCallback onSaveDraft;
+  final VoidCallback onPreview;
+
+  const _SellForm({
+    required this.formKey,
+    required this.type,
+    required this.images,
+    required this.onPickImages,
+    required this.onRemoveImage,
+    required this.titleCtrl,
+    required this.descCtrl,
+    required this.priceCtrl,
+    required this.quantityCtrl,
+    required this.conditions,
+    required this.selectedCondition,
+    required this.onConditionChanged,
+    required this.categories,
+    required this.selectedCategoryId,
+    required this.onCategoryChanged,
+    required this.meetingPoints,
+    required this.selectedMeetingPointId,
+    required this.onMeetingPointChanged,
+    required this.onSaveDraft,
+    required this.onPreview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: Form(
+            key: formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+              children: [
+                // ── Photos ──
+                _sectionLabel('Photos (${images.length}/5)'),
+                const SizedBox(height: 8),
+                _buildPhotoRow(),
+                const SizedBox(height: 18),
+
+                // ── Title ──
+                _sectionLabel('Title'),
+                const SizedBox(height: 6),
+                _buildInput(
+                  controller: titleCtrl,
+                  hint: 'e.g. Stewart Calculus 8e',
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 14),
+
+                // ── Price + Qty ──
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionLabel(
+                              type == 'RENT' ? 'Rent price (฿/day)' : 'Price (฿)'),
+                          const SizedBox(height: 6),
+                          _buildInput(
+                            controller: priceCtrl,
+                            hint: '0',
+                            keyboardType: TextInputType.number,
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty ? 'Required' : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    if (type == 'SALE')
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _sectionLabel('Qty / stock'),
+                            const SizedBox(height: 6),
+                            _QuantityStepper(controller: quantityCtrl),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // ── Category ──
+                _sectionLabel('Category'),
+                const SizedBox(height: 8),
+                _buildCategoryChips(),
+                const SizedBox(height: 14),
+
+                // ── Condition ──
+                _sectionLabel('Condition'),
+                const SizedBox(height: 8),
+                _buildConditionChips(),
+                const SizedBox(height: 14),
+
+                // ── Description ──
+                _sectionLabel('Description'),
+                const SizedBox(height: 6),
+                _buildInput(
+                  controller: descCtrl,
+                  hint: 'Used one semester. No highlights…',
+                  maxLines: 4,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 14),
+
+                // ── Meeting point ──
+                _sectionLabel('Meeting point'),
+                const SizedBox(height: 6),
+                _buildMeetingPointDropdown(),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Footer ──
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.divider)),
+          ),
+          child: Row(
+            children: [
+              // Save draft (outline)
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: onSaveDraft,
+                  child: Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      border:
+                          Border.all(color: AppColors.border, width: 1.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('Save draft',
+                        style: AppTextStyles.body
+                            .copyWith(color: AppColors.textMuted)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Preview → (filled)
+              Expanded(
+                flex: 3,
+                child: GestureDetector(
+                  onTap: onPreview,
+                  child: Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: AppColors.ink,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('Preview →',
+                        style: AppTextStyles.body.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  // ⭐ วิดเจ็ตสำหรับกล่องเลือกรูปภาพแบบใหม่ ⭐
-  // ⭐ วิดเจ็ตสำหรับกล่องเลือกรูปภาพแบบใหม่ (ขอบเส้นประ) ⭐
-  Widget _buildImagePickerBox() {
-    return GestureDetector(
-      onTap: _pickImages,
-      child: DottedBorder(
-        borderType: BorderType.RRect, // กำหนดให้เป็นสี่เหลี่ยมขอบมน
-        radius: const Radius.circular(
-          4,
-        ), // ความโค้งของมุม (ให้เท่ากับ Container ด้านใน)
-        padding: EdgeInsets.zero, // ลบ padding ของ DottedBorder ออก
-        color: Colors.grey[400]!, // สีของเส้นประ (เข้มกว่าพื้นหลังนิดนึงจะสวย)
-        strokeWidth: 2, // ความหนาของเส้น
-        dashPattern: const [
-          4,
-          3,
-        ], // รูปแบบเส้นประ: [ความยาวขีด, ความยาวช่องว่าง]
-        child: Container(
-          height: 160,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white, // สีพื้นหลังเทาอ่อนมาก (อยู่ข้างในเส้นประ)
-            borderRadius: BorderRadius.circular(4),
-            // ❌ ไม่ต้องมี border ตรงนี้แล้ว เพราะ DottedBorder จัดการให้
-          ),
-          child: _selectedImages.isEmpty
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.cloud_upload_outlined,
-                      size: 40,
-                      color: Colors.grey[600],
-                    ), // เปลี่ยนไอคอนให้ดูทันสมัยขึ้น
-                    const SizedBox(height: 8),
-                    Text(
-                      "Upload product photos",
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "(Up to 5 photos)",
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                    ),
-                  ],
-                )
-              : ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _selectedImages.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == _selectedImages.length) {
-                      // ปุ่มเพิ่มรูปต่อท้าย (ทำเป็นเส้นประเล็กๆ ด้วยก็ได้ถ้าชอบ)
-                      return GestureDetector(
-                        onTap: _pickImages,
-                        child: Container(
-                          width: 100,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: Colors.grey[300]!,
-                              width: 1,
-                            ), // อันเล็กใช้เส้นทึบบางๆ ก็พอ
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Colors.grey,
-                            size: 30,
-                          ),
-                        ),
-                      );
-                    }
-                    // ... (ส่วนแสดงรูปภาพที่เลือกเหมือนเดิม) ...
-                    final file = _selectedImages[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: FutureBuilder<Uint8List>(
-                              future: file.readAsBytes(),
-                              builder: (context, snapshot) {
-                                if (snapshot.hasData) {
-                                  return Image.memory(
-                                    snapshot.data!,
-                                    width: 120,
-                                    height: 160,
-                                    fit: BoxFit.cover,
-                                  );
-                                }
-                                return Container(
-                                  width: 120, height: 160,
-                                  color: Colors.grey[200],
-                                  child: const Center(child: CircularProgressIndicator()),
-                                );
-                              },
-                            ),
-                          ),
-                          Positioned(
-                            right: 4,
-                            top: 4,
-                            child: GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedImages.remove(file)),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+  // ── Photos row ──
+
+  Widget _buildPhotoRow() {
+    return SizedBox(
+      height: 74,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          // Filled images
+          ...images.asMap().entries.map((e) => _PhotoThumb(
+                file: e.value,
+                isCover: e.key == 0,
+                onRemove: () => onRemoveImage(e.value),
+              )),
+          // Empty slots
+          ...List.generate(
+            (5 - images.length).clamp(0, 5),
+            (i) => GestureDetector(
+              onTap: onPickImages,
+              child: Container(
+                width: 70,
+                height: 70,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                      color: AppColors.border,
+                      width: 1.5,
+                      style: BorderStyle.none),
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: CustomPaint(
+                  painter: _DashedBoxPainter(),
+                  child: Center(
+                    child: Text('+',
+                        style: AppTextStyles.titleM
+                            .copyWith(color: AppColors.textHint)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Category chips ──
+
+  Widget _buildCategoryChips() {
+    if (categories.isEmpty) {
+      return Text('Loading…',
+          style: AppTextStyles.caption.copyWith(color: AppColors.textHint));
+    }
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: categories.map((cat) {
+        final id = cat['id'].toString();
+        final name = cat['name'] as String;
+        final selected = id == selectedCategoryId;
+        return GestureDetector(
+          onTap: () => onCategoryChanged(id, name),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.ink : Colors.transparent,
+              border:
+                  Border.all(color: selected ? AppColors.ink : AppColors.border),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              name,
+              style: AppTextStyles.caption.copyWith(
+                color: selected ? Colors.white : AppColors.ink,
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.normal,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ── Condition chips ──
+
+  Widget _buildConditionChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: conditions.map((c) {
+        final selected = c == selectedCondition;
+        return GestureDetector(
+          onTap: () => onConditionChanged(c),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.accent : AppColors.bg,
+              border: Border.all(
+                color: selected ? AppColors.ink : AppColors.ink,
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              c,
+              style: AppTextStyles.caption.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ── Meeting point ──
+
+  Widget _buildMeetingPointDropdown() {
+    return _FieldBox(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+          value: selectedMeetingPointId,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppColors.textMuted),
+          hint: Text('Select meeting point',
+              style:
+                  AppTextStyles.bodyS.copyWith(color: AppColors.textHint)),
+          style: AppTextStyles.bodyS.copyWith(color: AppColors.ink),
+          items: meetingPoints
+              .map((mp) => DropdownMenuItem<String>(
+                    value: mp['id'].toString(),
+                    child: Text('${mp['name']} (${mp['zone']})'),
+                  ))
+              .toList(),
+          onChanged: (val) {
+            if (val == null) return;
+            final mp = meetingPoints.firstWhere(
+                (m) => m['id'].toString() == val);
+            onMeetingPointChanged(
+                val, '${mp['name']} (${mp['zone']})');
+          },
+          ),
         ),
       ),
     );
+  }
+
+  // ── Generic input ──
+
+  Widget _buildInput({
+    required TextEditingController controller,
+    required String hint,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return _FieldBox(
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        style: AppTextStyles.bodyS.copyWith(color: AppColors.ink),
+        validator: validator,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: AppTextStyles.bodyS.copyWith(color: AppColors.textHint),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String label) {
+    return Text(
+      label,
+      style: AppTextStyles.caption.copyWith(
+          color: AppColors.textMuted, fontWeight: FontWeight.w600),
+    );
+  }
+}
+
+// ── Quantity stepper ──
+
+class _QuantityStepper extends StatefulWidget {
+  final TextEditingController controller;
+  const _QuantityStepper({required this.controller});
+
+  @override
+  State<_QuantityStepper> createState() => _QuantityStepperState();
+}
+
+class _QuantityStepperState extends State<_QuantityStepper> {
+  int _qty = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _qty = int.tryParse(widget.controller.text) ?? 1;
+  }
+
+  void _change(int delta) {
+    final next = (_qty + delta).clamp(1, 99);
+    setState(() => _qty = next);
+    widget.controller.text = '$next';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(
-          _selectedType == 'SALE' ? "Sell" : "Rent",
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const BackButton(color: Colors.black),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ช่องเลือกรูปภาพแบบใหม่
-                    _buildImagePickerBox(),
-                    const SizedBox(height: 30),
-
-                    _buildFieldContainer(
-                      label: "Listing Option",
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: RadioListTile<String>(
-                              title: const Text(
-                                "Sell",
-                                style: TextStyle(fontSize: 14),
-                              ),
-                              value: 'SALE',
-                              groupValue: _selectedType,
-                              activeColor: Colors.black,
-                              contentPadding: EdgeInsets.zero,
-                              onChanged: (val) =>
-                                  setState(() => _selectedType = val!),
-                            ),
-                          ),
-                          Expanded(
-                            child: RadioListTile<String>(
-                              title: const Text(
-                                "Rent",
-                                style: TextStyle(fontSize: 14),
-                              ),
-                              value: 'RENT',
-                              groupValue: _selectedType,
-                              activeColor: Colors.black,
-                              contentPadding: EdgeInsets.zero,
-                              onChanged: (val) =>
-                                  setState(() => _selectedType = val!),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ชื่อสินค้า
-                    _buildFieldContainer(
-                      label: "Title",
-                      child: TextFormField(
-                        controller: _titleCtrl,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'e.g. iPhone 17 Pro Max',
-                          hintStyle: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                        validator: (v) =>
-                            v!.isEmpty ? 'กรุณากรอกชื่อสินค้า' : null,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // รายละเอียด
-                    _buildFieldContainer(
-                      label: "Description",
-                      child: TextFormField(
-                        controller: _descCtrl,
-                        maxLines: 5,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText:
-                              'Details about the product, e.g. color, size, defects, reason for selling, etc.',
-                          hintStyle: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                        validator: (v) =>
-                            v!.isEmpty ? 'กรุณากรอกรายละเอียด' : null,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // // ราคา
-                    // _buildFieldContainer(
-                    //   label: "Price",
-                    //   child: TextFormField(
-                    //     controller: _priceCtrl,
-                    //     keyboardType: TextInputType.number,
-                    //     decoration: const InputDecoration(
-                    //       border: InputBorder.none,
-                    //       hintText: 'Add your price in Baht',
-                    //       hintStyle: TextStyle(
-                    //         color: Colors.grey,
-                    //         fontSize: 14,
-                    //       ),
-                    //     ),
-                    //     validator: (v) => v!.isEmpty ? 'กรุณากรอกราคา' : null,
-                    //   ),
-                    // ),
-                    // const SizedBox(height: 20),
-                    // ราคา
-                    _buildFieldContainer(
-                      // ⭐ ถ้าเลือก RENT ให้เขียนว่า "ราคาเช่าต่อวัน", ถ้าไม่ใช่ เขียน "ราคาขาย"
-                      label: _selectedType == 'RENT'
-                          ? "Rent Price (Baht/day)"
-                          : "Selling Price (Baht)",
-                      child: TextFormField(
-                        controller: _priceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          // ⭐ เปลี่ยน hintText ให้สอดคล้องกัน
-                          hintText: _selectedType == 'RENT'
-                              ? 'e.g. 50'
-                              : 'e.g. 15900',
-                          hintStyle: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                        validator: (v) => v!.isEmpty ? 'กรุณากรอกราคา' : null,
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // จำนวนสินค้า
-                    if (_selectedType == 'SALE')
-                      _buildFieldContainer(
-                        label: "Quantity (จำนวน)",
-                        child: TextFormField(
-                          controller: _quantityCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'e.g. 1',
-                            hintStyle: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'กรุณาระบุจำนวน';
-                            final n = int.tryParse(v);
-                            if (n == null || n < 1) return 'จำนวนต้องมากกว่า 0';
-                            return null;
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-
-                    // สถานที่ (Dropdown จาก meeting points เพื่อใช้กรองข้อมูล)
-                    _buildFieldContainer(
-                      label: "Location",
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedMeetingPointId,
-                          style: const TextStyle(fontSize: 14, color: Colors.black87),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            icon: Icon(Icons.map_outlined, color: Colors.grey),
-                          ),
-                          isExpanded: true,
-                          hint: const Text('เลือกโซนสถานที่', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                          items: [
-                            ..._meetingPoints.map((mp) {
-                              final name = mp['name'] ?? '';
-                              final zone = mp['zone'] ?? '';
-                              return DropdownMenuItem<String>(
-                                value: mp['id'].toString(),
-                                child: Text('$name ($zone)', style: const TextStyle(fontSize: 14)),
-                              );
-                            }),
-                          ],
-                          onChanged: (val) => setState(() => _selectedMeetingPointId = val),
-                          validator: (v) => (v == null || v.isEmpty) ? 'กรุณาเลือกสถานที่หลัก' : null,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // จุดนัดพบ (แบบพิมพ์เอง)
-                    _buildFieldContainer(
-                      label: "Meeting Point (จุดนัดพบ)",
-                      child: TextFormField(
-                        controller: _locationCtrl,
-                        style: const TextStyle(fontSize: 14, color: Colors.black87),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          icon: Icon(Icons.location_on_outlined, color: Colors.grey),
-                          hintText: 'รายละเอียดจุดนัดพบ (เช่น หน้าลิฟต์ รพ., โต๊ะม้าหิน)',
-                          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'กรุณาระบุจุดนัดพบ' : null,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // หมวดหมู่ และ สภาพสินค้า (อยู่ในแถวเดียวกัน)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // หมวดหมู่
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Category",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(color: Colors.grey[400]!),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: _categories.isEmpty
-                                    ? const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: 14,
-                                        ),
-                                        child: Text(
-                                          "กำลังโหลด...",
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      )
-                                    : DropdownButtonHideUnderline(
-                                        child: DropdownButtonFormField<String>(
-                                          value: _selectedCategoryId,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black87,
-                                          ),
-                                          decoration: const InputDecoration(
-                                            border: InputBorder.none,
-                                          ),
-                                          isExpanded: true,
-                                          icon: const Icon(
-                                            Icons.keyboard_arrow_down_rounded,
-                                          ),
-                                          items: _categories
-                                              .map<DropdownMenuItem<String>>((
-                                                item,
-                                              ) {
-                                                return DropdownMenuItem<String>(
-                                                  value: item['id'].toString(),
-                                                  child: Text(
-                                                    item['name'],
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                );
-                                              })
-                                              .toList(),
-                                          onChanged: (val) => setState(
-                                            () => _selectedCategoryId = val,
-                                          ),
-                                          validator: (v) =>
-                                              v == null ? 'กรุณาเลือก' : null,
-                                        ),
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // สภาพสินค้า
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Condition",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(color: Colors.grey[400]!),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _selectedCondition,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black87,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                    ),
-                                    isExpanded: true,
-                                    icon: const Icon(
-                                      Icons.keyboard_arrow_down_rounded,
-                                    ),
-                                    items:
-                                        [
-                                          'มือหนึ่ง',
-                                          'มือสอง (สภาพดี)',
-                                          'มือสอง (มีตำหนิ)',
-                                        ].map((String val) {
-                                          return DropdownMenuItem(
-                                            value: val,
-                                            child: Text(
-                                              val,
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.black87,
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
-                                    onChanged: (val) => setState(
-                                      () => _selectedCondition = val!,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-
-                    // ปุ่มลงขาย
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        onPressed: _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black, // สีปุ่มดำ
-                          foregroundColor: Colors.white, // ตัวหนังสือขาว
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        child: const Text(
-                          "Submit",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
+    return _FieldBox(
+      child: SizedBox(
+      height: 42,
+      child: Row(
+        children: [
+          _StepBtn(icon: '−', onTap: () => _change(-1)),
+          Expanded(
+            child: Center(
+              child: Text('$_qty',
+                  style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w700, color: AppColors.ink)),
             ),
+          ),
+          _StepBtn(icon: '+', onTap: () => _change(1)),
+        ],
+      ),
+      ),
     );
   }
+}
+
+class _StepBtn extends StatelessWidget {
+  final String icon;
+  final VoidCallback onTap;
+  const _StepBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 36,
+        height: double.infinity,
+        child: Center(
+          child: Text(icon,
+              style: AppTextStyles.titleS.copyWith(color: AppColors.ink)),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Photo thumbnail ──
+
+class _PhotoThumb extends StatelessWidget {
+  final XFile file;
+  final bool isCover;
+  final VoidCallback onRemove;
+
+  const _PhotoThumb(
+      {required this.file, required this.isCover, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Container(
+          width: 70,
+          height: 70,
+          margin: const EdgeInsets.only(right: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: isCover
+                ? Border.all(color: AppColors.accent, width: 2)
+                : Border.all(color: AppColors.border, width: 1.5),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: kIsWeb
+                ? FutureBuilder<Uint8List>(
+                    future: file.readAsBytes(),
+                    builder: (_, snap) => snap.hasData
+                        ? Image.memory(snap.data!, fit: BoxFit.cover)
+                        : const SizedBox(),
+                  )
+                : Image.file(File(file.path), fit: BoxFit.cover),
+          ),
+        ),
+        if (isCover)
+          Positioned(
+            bottom: 4,
+            left: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text('cover',
+                  style: AppTextStyles.tagline
+                      .copyWith(color: AppColors.ink, fontSize: 9)),
+            ),
+          ),
+        Positioned(
+          top: 3,
+          right: 9,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                  color: AppColors.ink, shape: BoxShape.circle),
+              child: const Icon(Icons.close, size: 12, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Consistent field box — single source of border truth ──
+// Using Container+BoxDecoration instead of OutlineInputBorder avoids
+// the 1px rendering glitch where Flutter draws sides at different sub-pixel
+// thicknesses depending on widget state.
+
+class _FieldBox extends StatelessWidget {
+  final Widget child;
+  const _FieldBox({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        border: Border.all(color: AppColors.ink, width: 1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+// ── Dashed box painter for empty photo slots ──
+
+class _DashedBoxPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const dash = 5.0;
+    const gap = 3.0;
+    final paint = Paint()
+      ..color = AppColors.border
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final r = RRect.fromRectAndRadius(
+        Offset.zero & size, const Radius.circular(8));
+    final path = Path()..addRRect(r);
+    _drawDashedPath(canvas, path, paint, dash, gap);
+  }
+
+  void _drawDashedPath(
+      Canvas canvas, Path path, Paint paint, double dash, double gap) {
+    final metrics = path.computeMetrics();
+    for (final m in metrics) {
+      double dist = 0;
+      while (dist < m.length) {
+        final end = (dist + dash).clamp(0.0, m.length);
+        canvas.drawPath(m.extractPath(dist, end), paint);
+        dist += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBoxPainter old) => false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Step 2 — Sell Preview
+// ─────────────────────────────────────────────────────────────
+
+class _SellPreview extends StatelessWidget {
+  final String type;
+  final String title;
+  final String price;
+  final String quantity;
+  final String condition;
+  final String categoryName;
+  final String description;
+  final String meetingPoint;
+  final List<XFile> images;
+  final bool isSubmitting;
+  final VoidCallback onPublish;
+
+  const _SellPreview({
+    required this.type,
+    required this.title,
+    required this.price,
+    required this.quantity,
+    required this.condition,
+    required this.categoryName,
+    required this.description,
+    required this.meetingPoint,
+    required this.images,
+    required this.isSubmitting,
+    required this.onPublish,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final checks = [
+      _Check('✓', 'At least 1 photo', images.isNotEmpty),
+      _Check('✓', 'Title + price',
+          title.isNotEmpty && price.isNotEmpty),
+      _Check('✓', 'Category + condition',
+          categoryName.isNotEmpty && condition.isNotEmpty),
+    ];
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+            children: [
+              // ── Preview card ──
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border.all(
+                    color: AppColors.accent,
+                    width: 1.5,
+                    style: BorderStyle.none,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: CustomPaint(
+                  painter: _DashedRectPainter(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image — homepage card style, very big
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(13)),
+                        child: SizedBox(
+                          height: 300,
+                          width: double.infinity,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Container(
+                                color: AppColors.surface,
+                                child: images.isNotEmpty
+                                    ? _previewImage()
+                                    : const Center(
+                                        child: Icon(Icons.image_outlined,
+                                            size: 56,
+                                            color: AppColors.textHint),
+                                      ),
+                              ),
+                              // Category badge — top-left
+                              if (categoryName.isNotEmpty)
+                                Positioned(
+                                  top: 10,
+                                  left: 10,
+                                  child: _OverlayBadge(
+                                    label: categoryName,
+                                    textColor: AppColors.ink,
+                                  ),
+                                ),
+                              // Type badge — top-right
+                              Positioned(
+                                top: 10,
+                                right: 10,
+                                child: _OverlayBadge(
+                                  label: type == 'SALE' ? 'SALE' : 'RENT',
+                                  textColor: type == 'SALE'
+                                      ? const Color(0xFF22C55E)
+                                      : AppColors.accent,
+                                ),
+                              ),
+                              // Condition badge — bottom-left
+                              if (condition.isNotEmpty)
+                                Positioned(
+                                  bottom: 10,
+                                  left: 10,
+                                  child: _OverlayBadgeDark(
+                                    label: _shortCondition(condition),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Details
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              _Badge(
+                                  label: type == 'SALE'
+                                      ? 'FOR SALE'
+                                      : 'FOR RENT'),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '$categoryName · $condition · $quantity in stock',
+                                  style: AppTextStyles.caption
+                                      .copyWith(color: AppColors.textMuted),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ]),
+                            const SizedBox(height: 6),
+                            Text(
+                              title.isEmpty ? 'Untitled' : title,
+                              style: AppTextStyles.titleS
+                                  .copyWith(color: AppColors.ink),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '฿$price',
+                              style: GoogleFonts.sriracha(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                            if (description.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                description,
+                                style: AppTextStyles.caption
+                                    .copyWith(color: AppColors.textMuted),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Checklist ──
+              Text('Checklist',
+                  style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              ...checks.map((c) => _buildCheckRow(c)),
+
+              const SizedBox(height: 16),
+
+              // ── Note ──
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.accentSoft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: AppColors.accent.withOpacity(0.4)),
+                ),
+                child: Text(
+                  '🔔 You\'ll get a notification every time a buyer messages you.',
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textMuted),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Footer ──
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.divider)),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: GestureDetector(
+              onTap: isSubmitting ? null : onPublish,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.ink,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
+                      )
+                    : Text(
+                        'Publish listing · go live now',
+                        style: AppTextStyles.body.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _previewImage() {
+    if (kIsWeb) {
+      return FutureBuilder<Uint8List>(
+        future: images.first.readAsBytes(),
+        builder: (_, snap) => snap.hasData
+            ? Image.memory(snap.data!,
+                width: double.infinity, fit: BoxFit.contain)
+            : const SizedBox.expand(),
+      );
+    }
+    return Image.file(File(images.first.path),
+        width: double.infinity, fit: BoxFit.contain);
+  }
+
+  String _shortCondition(String c) {
+    final upper = c.toUpperCase();
+    if (upper.contains('หนึ่ง') || upper.contains('NEW') ||
+        upper.contains('LIKE')) return 'มือ 1';
+    return 'มือ 2';
+  }
+
+  Widget _buildCheckRow(_Check c) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: c.pass ? AppColors.ink : AppColors.accent,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              c.mark,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: c.pass ? Colors.white : AppColors.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            c.label,
+            style: AppTextStyles.bodyS.copyWith(
+              color: c.pass ? AppColors.ink : AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Check {
+  final String mark;
+  final String label;
+  final bool pass;
+  const _Check(this.mark, this.label, this.pass);
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  const _Badge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.tagline.copyWith(
+            color: AppColors.ink, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+// ── Overlay badges (homepage card style) ──
+
+class _OverlayBadge extends StatelessWidget {
+  final String label;
+  final Color textColor;
+  const _OverlayBadge({required this.label, required this.textColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          color: textColor,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _OverlayBadgeDark extends StatelessWidget {
+  final String label;
+  const _OverlayBadgeDark({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Dashed border rect painter (for preview card) ──
+
+class _DashedRectPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const dash = 8.0;
+    const gap = 4.0;
+    final paint = Paint()
+      ..color = AppColors.accent
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final r = RRect.fromRectAndRadius(
+        Offset.zero & size, const Radius.circular(14));
+    final path = Path()..addRRect(r);
+    final metrics = path.computeMetrics();
+    for (final m in metrics) {
+      double dist = 0;
+      while (dist < m.length) {
+        final end = (dist + dash).clamp(0.0, m.length);
+        canvas.drawPath(m.extractPath(dist, end), paint);
+        dist += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRectPainter old) => false;
 }

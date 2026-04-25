@@ -89,7 +89,13 @@ class ChatRoom {
       isPinned: json['isPinned'] ?? false,
       isLocked: json['isLocked'] ?? false,
       otherUserId: json['otherUserId'] ?? otherUser?['id'] ?? '',
-      otherUserName: json['otherUserName'] ?? otherUser?['displayName'] ?? otherUser?['username'] ?? 'ไม่ระบุชื่อ',
+      otherUserName: json['otherUserName'] ??
+          otherUser?['display_name_th'] ??
+          otherUser?['display_name_en'] ??
+          otherUser?['displayNameTh'] ??
+          otherUser?['displayName'] ??
+          otherUser?['username'] ??
+          'ไม่ระบุชื่อ',
       otherUserAvatar: json['otherUserAvatar'] ?? otherUser?['avatar'],
       productId: json['productId'] ?? product?['id'],
       productTitle: json['productTitle'] ?? product?['title'] ?? 'ไม่ระบุ',
