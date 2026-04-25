@@ -248,7 +248,18 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 18),
 
           // Password field
-          _fieldLabel('PASSWORD'),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              _fieldLabel('PASSWORD'),
+              const Spacer(),
+              Text(
+                'reg.tu.ac.th password',
+                style: _mono(size: 10, color: AppColors.textMuted),
+              ),
+            ],
+          ),
           const SizedBox(height: 9),
           _inputCard(
             controller: _passwordController,

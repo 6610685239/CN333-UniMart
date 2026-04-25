@@ -15,13 +15,20 @@ async function createTransaction(buyerId, productId, type) {
     }
 
     const normalizedStatus = normalizeProductStatus(product.status);
-    if (normalizedStatus === 'RESERVED' || normalizedStatus === 'SOLD') {
-      return { error: 'RESERVED' };
-    }
 
-    // Check stock quantity for SALE products
-    if (type === 'SALE' && product.quantity <= 0) {
-      return { error: 'OUT_OF_STOCK' };
+    if (type === 'RENT') {
+      // RENT: blocked if already reserved/sold
+      if (normalizedStatus === 'RESERVED' || normalizedStatus === 'SOLD') {
+        return { error: 'RESERVED' };
+      }
+    } else {
+      // SALE: blocked only when fully sold out or explicitly marked SOLD
+      if (normalizedStatus === 'SOLD') {
+        return { error: 'SOLD' };
+      }
+      if (product.quantity <= 0) {
+        return { error: 'OUT_OF_STOCK' };
+      }
     }
 
     // Decrement quantity for SALE; only set RESERVED when stock hits 0
@@ -77,6 +84,16 @@ async function confirmTransaction(id) {
     return { error: 'INVALID_STATUS', currentStatus: transaction.status };
   }
 
+  // For SALE: only reserve if no stock remains; for RENT: always reserve
+  let newProductStatus = 'RESERVED';
+  if (transaction.type === 'SALE') {
+    const product = await prisma.product.findUnique({
+      where: { id: transaction.productId },
+      select: { quantity: true },
+    });
+    newProductStatus = product && product.quantity > 0 ? 'AVAILABLE' : 'RESERVED';
+  }
+
   const [updated] = await prisma.$transaction([
     prisma.transaction.update({
       where: { id: transaction.id },
@@ -84,7 +101,7 @@ async function confirmTransaction(id) {
     }),
     prisma.product.update({
       where: { id: transaction.productId },
-      data: { status: 'RESERVED' }
+      data: { status: newProductStatus }
     })
   ]);
 
@@ -147,6 +164,16 @@ async function completeTransaction(id) {
     return { error: 'INVALID_STATUS', currentStatus: transaction.status };
   }
 
+  // For SALE: only mark SOLD when no stock remains; for RENT: always return to AVAILABLE
+  let finalProductStatus = isRent ? 'AVAILABLE' : 'SOLD';
+  if (!isRent) {
+    const product = await prisma.product.findUnique({
+      where: { id: transaction.productId },
+      select: { quantity: true },
+    });
+    finalProductStatus = product && product.quantity > 0 ? 'AVAILABLE' : 'SOLD';
+  }
+
   const [updated] = await prisma.$transaction([
     prisma.transaction.update({
       where: { id: transaction.id },
@@ -154,7 +181,7 @@ async function completeTransaction(id) {
     }),
     prisma.product.update({
       where: { id: transaction.productId },
-      data: { status: isRent ? 'AVAILABLE' : 'SOLD' }
+      data: { status: finalProductStatus }
     })
   ]);
 
@@ -221,6 +248,18 @@ async function getUserTransactions(userId) {
   };
 }
 
+async function getTransactionById(id) {
+  const transaction = await prisma.transaction.findUnique({
+    where: { id: parseInt(id) },
+    include: {
+      product: { select: { id: true, title: true, price: true, rentPrice: true, images: true, status: true } },
+      buyer: { select: { id: true, display_name_th: true, username: true, avatar: true } },
+      seller: { select: { id: true, display_name_th: true, username: true, avatar: true } },
+    },
+  });
+  return transaction;
+}
+
 module.exports = {
   createTransaction,
   confirmTransaction,
@@ -228,5 +267,6 @@ module.exports = {
   returnTransaction,
   completeTransaction,
   cancelTransaction,
-  getUserTransactions
+  getUserTransactions,
+  getTransactionById,
 };

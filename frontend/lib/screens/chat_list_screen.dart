@@ -150,20 +150,23 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   List<ChatRoom> get _filteredRooms {
-    final source = _searchQuery.isEmpty
-        ? List<ChatRoom>.from(_rooms)
-        : _rooms.where((r) {
-            final q = _searchQuery.toLowerCase();
-            return r.otherUserName.toLowerCase().contains(q) ||
-                r.productTitle.toLowerCase().contains(q) ||
-                (r.lastMessage?.toLowerCase().contains(q) ?? false);
-          }).toList();
-    source.sort((a, b) {
-      if (a.isPinned == b.isPinned) return 0;
-      return a.isPinned ? -1 : 1;
-    });
-    return source;
+    if (_searchQuery.isEmpty) return List<ChatRoom>.from(_rooms);
+    final q = _searchQuery.toLowerCase();
+    return _rooms.where((r) {
+      return r.otherUserName.toLowerCase().contains(q) ||
+          r.productTitle.toLowerCase().contains(q) ||
+          (r.lastMessage?.toLowerCase().contains(q) ?? false);
+    }).toList();
   }
+
+  List<ChatRoom> get _pinnedRooms =>
+      _filteredRooms.where((r) => r.isPinned && !r.isLocked).toList();
+
+  List<ChatRoom> get _activeRooms =>
+      _filteredRooms.where((r) => !r.isPinned && !r.isLocked).toList();
+
+  List<ChatRoom> get _endedRooms =>
+      _filteredRooms.where((r) => r.isLocked).toList();
 
 
   // ── Build ──────────────────────────────────────
@@ -239,6 +242,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
       );
     }
 
+    final pinned = _pinnedRooms;
+    final active = _activeRooms;
+    final ended = _endedRooms;
+    final hasAny = pinned.isNotEmpty || active.isNotEmpty || ended.isNotEmpty;
+
     return RefreshIndicator(
       onRefresh: _loadRooms,
       color: AppColors.ink,
@@ -248,7 +256,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           SliverToBoxAdapter(child: _buildSearchBar()),
 
           // ── Empty state ──
-          if (_filteredRooms.isEmpty)
+          if (!hasAny)
             SliverFillRemaining(
               child: Center(
                 child: Column(
@@ -266,30 +274,37 @@ class _ChatListScreenState extends State<ChatListScreen> {
             ),
 
           // ── Pinned section ──
-          if (_filteredRooms.any((r) => r.isPinned)) ...[
+          if (pinned.isNotEmpty) ...[
             SliverToBoxAdapter(child: _buildSectionHeader('📌  Pinned')),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (ctx, i) {
-                  final pinned = _filteredRooms.where((r) => r.isPinned).toList();
-                  return _buildRoomTile(pinned[i]);
-                },
-                childCount: _filteredRooms.where((r) => r.isPinned).length,
+                (_, i) => _buildRoomTile(pinned[i]),
+                childCount: pinned.length,
               ),
             ),
           ],
 
           // ── All chats section ──
-          if (_filteredRooms.any((r) => !r.isPinned)) ...[
-            if (_filteredRooms.any((r) => r.isPinned))
-              SliverToBoxAdapter(child: _buildSectionHeader('All Chats')),
+          if (active.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: _buildSectionHeader(
+                  pinned.isNotEmpty ? 'All Chats' : 'All Chats'),
+            ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (ctx, i) {
-                  final rest = _filteredRooms.where((r) => !r.isPinned).toList();
-                  return _buildRoomTile(rest[i]);
-                },
-                childCount: _filteredRooms.where((r) => !r.isPinned).length,
+                (_, i) => _buildRoomTile(active[i]),
+                childCount: active.length,
+              ),
+            ),
+          ],
+
+          // ── Ended section ──
+          if (ended.isNotEmpty) ...[
+            SliverToBoxAdapter(child: _buildSectionHeader('🔒  Ended')),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (_, i) => _buildRoomTile(ended[i]),
+                childCount: ended.length,
               ),
             ),
           ],
@@ -466,7 +481,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // ── Avatar ──
-                  _buildAvatar(initial, room.isPinned, room.otherUserAvatar),
+                  _buildAvatar(initial, room.isPinned, room.otherUserAvatar,
+                      isLocked: room.isLocked),
                   const SizedBox(width: 12),
                   // ── Content ──
                   Expanded(
@@ -477,8 +493,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            room.otherUserName +
-                                (room.isLocked ? ' (จบแล้ว)' : ''),
+                            room.otherUserName,
                             style: AppTextStyles.body.copyWith(
                               fontWeight: FontWeight.w700,
                               color: room.isLocked
@@ -555,7 +570,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
     );
   }
 
-  Widget _buildAvatar(String initial, bool isPinned, String? avatarRaw) {
+  Widget _buildAvatar(String initial, bool isPinned, String? avatarRaw,
+      {bool isLocked = false}) {
     final avatarUrl = avatarRaw == null
         ? null
         : avatarRaw.startsWith('http')
@@ -592,7 +608,21 @@ class _ChatListScreenState extends State<ChatListScreen> {
                             AppTextStyles.titleS.copyWith(color: AppColors.ink)),
                   ),
           ),
-          if (isPinned)
+          if (isLocked)
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: AppColors.textHint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lock_outline,
+                    size: 10, color: Colors.white),
+              ),
+            )
+          else if (isPinned)
             Positioned(
               bottom: 0,
               right: 0,

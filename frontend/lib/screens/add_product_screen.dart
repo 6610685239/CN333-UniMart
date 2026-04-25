@@ -73,6 +73,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
       final res = await http.get(Uri.parse('${AppConfig.baseUrl}/categories'));
       if (res.statusCode == 200) {
         final list = List<Map<String, dynamic>>.from(jsonDecode(res.body));
+        list.sort((a, b) {
+          final aIsOther = (a['name'] as String).toLowerCase() == 'others';
+          final bIsOther = (b['name'] as String).toLowerCase() == 'others';
+          if (aIsOther && !bIsOther) return 1;
+          if (!aIsOther && bIsOther) return -1;
+          return 0;
+        });
         if (mounted) {
           setState(() {
             _categories = list;
@@ -178,7 +185,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) return;
     if (_images.isEmpty) {
       _snack('Please add at least 1 photo');
       return;

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/app_notification.dart';
+import '../services/chat_service.dart';
 import '../services/notification_service.dart';
+import '../services/transaction_service.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
+import 'chat_room_screen.dart';
+import 'transaction_detail_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   final String userId;
@@ -54,6 +58,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _onTap(AppNotification n) async {
+    // Mark as read
     if (!n.isRead) {
       await NotificationService.markAsRead(n.id);
       if (mounted) {
@@ -70,10 +75,44 @@ class _NotificationScreenState extends State<NotificationScreen> {
       }
     }
     if (!mounted) return;
+
     if (n.type == 'chat_message' && n.data.containsKey('roomId')) {
-      Navigator.pop(context, {'type': 'chat', 'roomId': n.data['roomId']});
+      final roomId = n.data['roomId'].toString();
+      final detail = await ChatService.getRoomDetail(roomId);
+      if (!mounted) return;
+      // Determine which user is "other" based on current userId
+      final buyerId = detail['buyerId'] as String? ?? '';
+      final isBuyer = widget.userId == buyerId;
+      final otherData = (isBuyer ? detail['seller'] : detail['buyer'])
+          as Map<String, dynamic>?;
+      final otherUserName = otherData?['displayName'] as String? ??
+          otherData?['username'] as String? ??
+          'Unknown';
+      final otherUserAvatar = otherData?['avatar'] as String?;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatRoomScreen(
+            roomId: roomId,
+            currentUserId: widget.userId,
+            otherUserName: otherUserName,
+            otherUserAvatar: otherUserAvatar,
+          ),
+        ),
+      );
     } else if (n.type == 'transaction_update' && n.data.containsKey('transactionId')) {
-      Navigator.pop(context, {'type': 'transaction', 'transactionId': n.data['transactionId']});
+      final txId = n.data['transactionId'].toString();
+      final tx = await TransactionService.getTransactionById(txId);
+      if (!mounted || tx == null) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TransactionDetailScreen(
+            transaction: tx,
+            currentUserId: widget.userId,
+          ),
+        ),
+      );
     }
   }
 

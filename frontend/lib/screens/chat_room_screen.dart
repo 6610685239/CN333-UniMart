@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config.dart';
 import '../models/chat_message.dart';
@@ -11,6 +13,7 @@ import '../services/chat_service.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import 'product_detail_screen.dart';
+import 'seller_profile_screen.dart';
 
 class ChatRoomScreen extends StatefulWidget {
   final String roomId;
@@ -337,10 +340,38 @@ class _ChatRoomScreenState extends State<ChatRoomScreen>
     });
   }
 
-  void _handleAttachImage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ฟีเจอร์แนบรูปภาพกำลังพัฒนา...')),
+  Future<void> _handleAttachImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      imageQuality: 85,
     );
+    if (picked == null || !mounted) return;
+
+    final bytes = await picked.readAsBytes();
+    final ext = picked.name.split('.').last.toLowerCase();
+    final path = 'chat/${widget.roomId}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.storage.from('product-images').uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(contentType: 'image/$ext', upsert: false),
+      );
+      final url = supabase.storage.from('product-images').getPublicUrl(path);
+      await _sendMessage(content: url, type: 'image');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ส่งรูปไม่สำเร็จ: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _togglePin() async {
@@ -541,57 +572,73 @@ class _ChatRoomScreenState extends State<ChatRoomScreen>
         ),
       ),
       titleSpacing: 0,
-      title: Row(
-        children: [
-          // Avatar
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.accentSoft,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border, width: 1.5),
+      title: GestureDetector(
+        onTap: () {
+          final otherId = _getReportedUserId();
+          if (otherId.isEmpty) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SellerProfileScreen(
+                sellerId: otherId,
+                sellerName: widget.otherUserName,
+                currentUserId: widget.currentUserId,
+              ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: avatarUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: avatarUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Center(
-                      child: Text(initial,
-                          style: AppTextStyles.body.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink)),
-                    ),
-                  )
-                : Center(
-                    child: Text(
-                      initial,
-                      style: AppTextStyles.body.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
+          );
+        },
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.accentSoft,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border, width: 1.5),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: avatarUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: avatarUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Center(
+                        child: Text(initial,
+                            style: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink)),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        initial,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
-                  ),
-          ),
-          const SizedBox(width: 10),
-          // Name + status
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.otherUserName,
-                  style: AppTextStyles.body.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            // Name + status
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.otherUserName,
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         GestureDetector(
