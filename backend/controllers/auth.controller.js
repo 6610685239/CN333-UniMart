@@ -1,6 +1,8 @@
 const authService = require('../services/auth.service');
 const { supabase } = require('../models');
 
+const AVATAR_BUCKET = 'product-images'; // reuse existing public bucket
+
 async function verify(req, res) {
   const { username, password } = req.body;
 
@@ -146,18 +148,57 @@ async function uploadAvatar(req, res) {
     return res.status(400).json({ success: false, message: 'กรุณาเลือกรูปภาพ' });
   }
 
-  try {
-    const avatarFilename = req.file.filename;
+  console.log('[uploadAvatar] userId:', userId);
+  console.log('[uploadAvatar] file:', req.file.originalname, req.file.mimetype, req.file.size, 'buffer length:', req.file.buffer?.length);
 
-    await supabase
+  try {
+    // Fixed filename per user → upsert will overwrite old avatar (no space accumulation)
+    const fileName = `avatars/avatar-${userId}`;
+
+    // Normalize content type (fallback if client sends octet-stream)
+    const contentType = req.file.mimetype === 'application/octet-stream'
+      ? 'image/jpeg'
+      : req.file.mimetype;
+
+    console.log('[uploadAvatar] uploading to bucket:', AVATAR_BUCKET, 'path:', fileName, 'contentType:', contentType);
+
+    // Upload buffer to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(fileName, req.file.buffer, {
+        contentType,
+        upsert: true,
+      });
+
+    console.log('[uploadAvatar] upload result:', JSON.stringify(uploadData), 'error:', JSON.stringify(uploadError));
+
+    if (uploadError) {
+      return res.status(500).json({ success: false, message: 'อัปโหลดรูปไม่สำเร็จ', detail: uploadError.message });
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(AVATAR_BUCKET)
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+    console.log('[uploadAvatar] publicUrl:', publicUrl);
+
+    // Save full URL to database
+    const { error: dbError } = await supabase
       .from('users')
-      .update({ avatar: avatarFilename })
+      .update({ avatar: publicUrl })
       .eq('id', userId);
 
-    res.json({ success: true, avatar: avatarFilename });
+    if (dbError) {
+      console.error('[uploadAvatar] DB error:', dbError.message);
+      return res.status(500).json({ success: false, message: 'บันทึก URL ไม่สำเร็จ', detail: dbError.message });
+    }
+
+    res.json({ success: true, avatar: publicUrl });
   } catch (err) {
-    console.error('Upload Avatar Error:', err.message);
-    res.status(500).json({ success: false, message: 'อัปโหลดรูปไม่สำเร็จ' });
+    console.error('[uploadAvatar] catch error:', err.message);
+    res.status(500).json({ success: false, message: 'อัปโหลดรูปไม่สำเร็จ', detail: err.message });
   }
 }
 
