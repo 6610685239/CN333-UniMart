@@ -302,6 +302,7 @@ describe('Feature: unimart-iteration-2, Property 27: ธุรกรรมจั
             status: spec.status,
             type: spec.type,
             price: spec.price,
+            reviews: [],
             updatedAt: new Date(Date.now() - i * 60000).toISOString(),
             product: { id: spec.productId, title: `Product ${i}`, price: spec.price, images: [], status: 'AVAILABLE' },
             buyer: { id: userId, display_name_th: 'ผู้ซื้อ', username: 'buyer' },
