@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../pages/favourite_manager.dart';
 import '../services/api_service.dart';
@@ -121,6 +125,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   double _creditScore = 0.0;
   int _totalReviews = 0;
   String? _avatarUrl;
+  // local preview (real-time) – set immediately after picking
+  XFile? _localAvatarFile;
+  Uint8List? _localAvatarBytes; // used on web
+  bool _avatarUploading = false;
   int _sellingCount = 0;
   int _activeOrderCount = 0;
   int _historyCount = 0;
@@ -165,8 +173,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final user = await AuthService.getUser();
       if (user != null && mounted) {
         setState(() {
-          if (user['avatar'] != null) {
-            _avatarUrl = '${AppConfig.uploadsUrl}/${user['avatar']}';
+          final av = user['avatar'];
+          if (av != null) {
+            // Full URL (Supabase) — use directly; legacy filename — prepend uploads base
+            _avatarUrl = av.toString().startsWith('http')
+                ? av.toString()
+                : '${AppConfig.uploadsUrl}/$av';
           }
           _username = user['username'] as String?;
         });
@@ -208,28 +220,78 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (picked == null) return;
 
     final bytes = await picked.readAsBytes();
-    final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${AppConfig.baseUrl}/auth/${widget.userId}/avatar'));
-    request.files.add(
-        http.MultipartFile.fromBytes('avatar', bytes, filename: picked.name));
 
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
+    // ── Show local preview immediately (real-time) ──
+    if (mounted) {
+      setState(() {
+        _localAvatarFile = picked;
+        if (kIsWeb) _localAvatarBytes = bytes;
+        _avatarUploading = true;
+      });
+    }
 
-    if (response.statusCode == 200 && mounted) {
-      final data = jsonDecode(response.body);
-      final newAvatar = data['avatar'];
-      final user = await AuthService.getUser();
-      if (user != null) {
-        user['avatar'] = newAvatar;
-        await AuthService.saveUser(user);
+    try {
+      // Determine MIME type from file extension
+      final ext = picked.name.split('.').last.toLowerCase();
+      final mimeType = const {
+        'jpg': 'jpeg', 'jpeg': 'jpeg',
+        'png': 'png', 'gif': 'gif', 'webp': 'webp',
+      }[ext] ?? 'jpeg';
+
+      final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('${AppConfig.baseUrl}/auth/${widget.userId}/avatar'));
+      request.files.add(http.MultipartFile.fromBytes(
+          'avatar', bytes,
+          filename: picked.name,
+          contentType: MediaType('image', mimeType)));
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200 && mounted) {
+        final data = jsonDecode(response.body);
+        final newAvatar = data['avatar'];
+        final user = await AuthService.getUser();
+        if (user != null) {
+          user['avatar'] = newAvatar;
+          await AuthService.saveUser(user);
+        }
+        if (mounted) {
+          setState(() {
+            // Server now returns a full Supabase public URL — use directly
+            _avatarUrl = newAvatar;
+            _avatarUploading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('อัปเดตรูปโปรไฟล์แล้ว'),
+            backgroundColor: Colors.green,
+          ));
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            // Revert preview on failure
+            _localAvatarFile = null;
+            _localAvatarBytes = null;
+            _avatarUploading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('อัปโหลดไม่สำเร็จ กรุณาลองใหม่'),
+            backgroundColor: Colors.red,
+          ));
+        }
       }
+    } catch (e) {
       if (mounted) {
-        setState(() => _avatarUrl = '${AppConfig.uploadsUrl}/$newAvatar');
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('อัปเดตรูปโปรไฟล์แล้ว'),
-          backgroundColor: Colors.green,
+        setState(() {
+          _localAvatarFile = null;
+          _localAvatarBytes = null;
+          _avatarUploading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
         ));
       }
     }
@@ -389,7 +451,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           // Avatar — 80×80, accent fill, white ring + ink outer via shadow
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: _pickAvatar,
+            onTap: _avatarUploading ? null : _pickAvatar,
             child: Stack(
               children: [
                 Container(
@@ -410,42 +472,45 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         blurRadius: 0,
                       ),
                     ],
-                    image: _avatarUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(_avatarUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
                   ),
-                  child: _avatarUrl == null
-                      ? Center(
-                          child: Text(
-                            initial,
-                            style: GoogleFonts.sriracha(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
-                              height: 1.0,
-                            ),
-                          ),
-                        )
-                      : null,
+                  child: ClipOval(
+                    child: _buildAvatarContent(initial),
+                  ),
                 ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: AppColors.ink,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                if (_avatarUploading)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black26,
+                      ),
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      ),
                     ),
-                    child: const Icon(Icons.camera_alt_rounded,
-                        size: 12, color: Colors.white),
                   ),
-                ),
+                if (!_avatarUploading)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: AppColors.ink,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(Icons.camera_alt_rounded,
+                          size: 12, color: Colors.white),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -552,6 +617,47 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _subLine() {
     if (widget.faculty?.isNotEmpty == true) return widget.faculty!;
     return '';
+  }
+
+  /// Builds the inner content of the avatar circle.
+  /// Priority: local file (real-time) → remote URL → initial letter
+  Widget _buildAvatarContent(String initial) {
+    // 1. Local file picked from gallery (real-time preview)
+    if (_localAvatarFile != null) {
+      if (kIsWeb && _localAvatarBytes != null) {
+        return Image.memory(_localAvatarBytes!, fit: BoxFit.cover,
+            width: 80, height: 80);
+      } else if (!kIsWeb) {
+        return Image.file(File(_localAvatarFile!.path), fit: BoxFit.cover,
+            width: 80, height: 80);
+      }
+    }
+    // 2. Remote URL (already uploaded)
+    if (_avatarUrl != null) {
+      return Image.network(
+        _avatarUrl!,
+        fit: BoxFit.cover,
+        width: 80,
+        height: 80,
+        errorBuilder: (_, __, ___) => _avatarInitial(initial),
+      );
+    }
+    // 3. Fallback: initial letter
+    return _avatarInitial(initial);
+  }
+
+  Widget _avatarInitial(String initial) {
+    return Center(
+      child: Text(
+        initial,
+        style: GoogleFonts.sriracha(
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: AppColors.ink,
+          height: 1.0,
+        ),
+      ),
+    );
   }
 
   // ── Zone 2 · Credit score card ─────────────────────────────────────────────

@@ -1,14 +1,17 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, 'avatar-' + Date.now() + path.extname(file.originalname))
+// Use memory storage so the buffer can be forwarded to Supabase Storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/octet-stream'];
+    cb(null, allowed.includes(file.mimetype));
+  }
 });
-const upload = multer({ storage });
 
 router.post('/verify', authController.verify);
 router.post('/register', authController.register);
