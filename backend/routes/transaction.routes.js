@@ -9,5 +9,6 @@ router.patch('/:id/return', transactionController.returnItem);
 router.patch('/:id/complete', transactionController.complete);
 router.patch('/:id/cancel', transactionController.cancel);
 router.get('/user/:userId', transactionController.getUserTransactions);
+router.get('/:id', transactionController.getById);
 
 module.exports = router;

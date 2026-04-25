@@ -216,4 +216,16 @@ async function returnItem(req, res) {
   }
 }
 
-module.exports = { create, confirm, ship, returnItem, complete, cancel, getUserTransactions };
+async function getById(req, res) {
+  try {
+    const transaction = await transactionService.getTransactionById(req.params.id);
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'ไม่พบธุรกรรม' });
+    }
+    res.json(transaction);
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'ไม่สามารถโหลดธุรกรรมได้', error: err.message });
+  }
+}
+
+module.exports = { create, confirm, ship, returnItem, complete, cancel, getUserTransactions, getById };
