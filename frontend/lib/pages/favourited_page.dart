@@ -1,33 +1,87 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'favourite_manager.dart';
+import '../models/product.dart';
+import '../config.dart';
+import '../shared/theme/app_colors.dart';
+import '../screens/product_detail_screen.dart';
+
+// ── Typography (mirrors home_page.dart exactly) ───────────────────────────────
+
+TextStyle _sans({
+  double size = 14,
+  FontWeight weight = FontWeight.w400,
+  Color color = AppColors.ink,
+  double? height,
+}) =>
+    GoogleFonts.sriracha(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+    );
+
+TextStyle _jak({
+  double size = 14,
+  FontWeight weight = FontWeight.w400,
+  Color color = AppColors.ink,
+  double? height,
+}) =>
+    TextStyle(
+      fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+      fontFamilyFallback: const ['NotoSansThai'],
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+    );
+
+TextStyle _mono({
+  double size = 9,
+  Color color = AppColors.textMuted,
+  FontWeight weight = FontWeight.w500,
+}) =>
+    GoogleFonts.jetBrainsMono(
+      fontSize: size,
+      letterSpacing: 0.4,
+      color: color,
+      fontWeight: weight,
+    );
+
+String _formatPrice(double price) {
+  final str = price.toStringAsFixed(0);
+  final buf = StringBuffer();
+  final len = str.length;
+  for (int i = 0; i < len; i++) {
+    if (i > 0 && (len - i) % 3 == 0) buf.write(',');
+    buf.write(str[i]);
+  }
+  return buf.toString();
+}
+
+String _conditionLabel(String condition) {
+  final c = condition.toUpperCase();
+  if (c.contains('NEW') || c.contains('หนึ่ง') || c == '1' ||
+      c.contains('LIKE')) {
+    return 'มือ 1';
+  }
+  return 'มือ 2';
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 class FavouritedPage extends StatefulWidget {
-  const FavouritedPage({super.key});
+  final String currentUserId;
+  final VoidCallback? onExplore;
+  const FavouritedPage({super.key, required this.currentUserId, this.onExplore});
 
   @override
   State<FavouritedPage> createState() => _FavouritedPageState();
 }
 
 class _FavouritedPageState extends State<FavouritedPage> {
-  int _selectedNav = 3; // "Saved" tab is active
-
-  // Palette (same as HomePage)
-  static const Color _pink     = Color(0xFFF48FB1);
-  static const Color _deepPink = Color(0xFFE91E8C);
-  static const Color _bgColor  = Color(0xFFF7F8FA);
-  static const Color _textDark = Color(0xFF1A1F36);
-  static const Color _textMid  = Color(0xFF8A94A6);
-  static const Color _inactive = Color(0xFFB0B8C1);
-
-  static const _navLabels = ['Home', 'Chat', 'Sell', 'Favourited', 'Profile'];
-  static const _navFilled = [
-    Icons.home_rounded, Icons.chat_bubble_rounded,
-    Icons.add_rounded,  Icons.favorite_rounded, Icons.person_rounded,
-  ];
-  static const _navOutlined = [
-    Icons.home_outlined, Icons.chat_bubble_outline,
-    Icons.add_rounded,   Icons.favorite_border, Icons.person_outline,
-  ];
+  String? _selectedCategory; // null = All
 
   @override
   void initState() {
@@ -35,7 +89,9 @@ class _FavouritedPageState extends State<FavouritedPage> {
     FavouriteManager.instance.addListener(_refresh);
   }
 
-  void _refresh() { if (mounted) setState(() {}); }
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
@@ -43,196 +99,329 @@ class _FavouritedPageState extends State<FavouritedPage> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final favourited = FavouriteManager.instance.favouritedProducts;
-
-    return Scaffold(
-      backgroundColor: _bgColor,
-      bottomNavigationBar: _buildBottomNav(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Title bar ─────────────────────────────────────
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Text('Favourited',
-                    style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800,
-                      color: _textDark)),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(
-                          color: _bgColor,
-                          borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.arrow_back_ios_new_rounded,
-                          size: 16, color: _textDark),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Content ───────────────────────────────────────
-            Expanded(
-              child: favourited.isEmpty
-                  ? _buildEmptyState()
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.72, // tall card like Figma
-                      ),
-                      itemCount: favourited.length,
-                      itemBuilder: (_, i) => _buildFavCard(favourited[i]),
-                    ),
-            ),
-          ],
+  void _openProduct(Product product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProductDetailScreen(
+          product: product,
+          currentUserId: widget.currentUserId,
         ),
       ),
     );
   }
 
-  // ── EMPTY STATE ──────────────────────────────────────────────
-  Widget _buildEmptyState() {
-    return Center(
+  // ── Derived data ──────────────────────────────────────────────────────────
+
+  List<Product> get _filtered {
+    final all = FavouriteManager.instance.favouritedProducts;
+    if (_selectedCategory == null) return all;
+    return all
+        .where((p) => p.categoryName == _selectedCategory)
+        .toList();
+  }
+
+  /// Returns category names with their counts, sorted alphabetically.
+  List<(String, int)> get _categoryChips {
+    final all = FavouriteManager.instance.favouritedProducts;
+    final counts = <String, int>{};
+    for (final p in all) {
+      if (p.categoryName.isNotEmpty) {
+        counts[p.categoryName] = (counts[p.categoryName] ?? 0) + 1;
+      }
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return sorted.map((e) => (e.key, e.value)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final favourited = FavouriteManager.instance.favouritedProducts;
+    final filtered = _filtered;
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
+    return SafeArea(
+      bottom: false,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(
-              color: _pink.withOpacity(0.1),
-              shape: BoxShape.circle),
-            child: Icon(Icons.favorite_border, size: 36, color: _pink)),
-          const SizedBox(height: 16),
-          const Text('No favourites yet',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _textDark)),
-          const SizedBox(height: 6),
-          Text('Tap the ♡ on any item to save it here',
-            style: TextStyle(fontSize: 13, color: _textMid)),
+          // ── Header ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Favourite',
+                      style: GoogleFonts.sriracha(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.favorite,
+                        size: 20, color: Color(0xFFF48FB1)),
+                    const Spacer(),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${favourited.length} items saved',
+                  style: _mono(size: 10, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Category chips ──
+          if (_categoryChips.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 34,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  // "All" chip
+                  _categoryChip(
+                    label: 'All (${favourited.length})',
+                    active: _selectedCategory == null,
+                    onTap: () => setState(() => _selectedCategory = null),
+                  ),
+                  for (final chip in _categoryChips) ...[
+                    const SizedBox(width: 6),
+                    _categoryChip(
+                      label: '${chip.$1} (${chip.$2})',
+                      active: _selectedCategory == chip.$1,
+                      onTap: () => setState(
+                          () => _selectedCategory = chip.$1),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ] else
+            const SizedBox(height: 8),
+
+          // ── Grid or empty state ──
+          Expanded(
+            child: filtered.isEmpty
+                ? _buildEmptyState(favourited.isEmpty)
+                : GridView.builder(
+                    padding:
+                        EdgeInsets.fromLTRB(16, 0, 16, 88 + bottomPad),
+                    physics: const BouncingScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 160 / 220,
+                    ),
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) => _productCard(filtered[i]),
+                  ),
+          ),
         ],
       ),
     );
   }
 
-  // ── FAVOURITE CARD (Figma style: image top, info below) ──────
-  Widget _buildFavCard(ProductItem item) {
-    final fav     = FavouriteManager.instance;
-    final isLiked = fav.isFavourited(item.id);
-    final count   = fav.getCount(item.id);
+  // ── Category chip ─────────────────────────────────────────────────────────
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 12, offset: const Offset(0, 3))],
+  Widget _categoryChip({
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? AppColors.ink : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border, width: 1.5),
+        ),
+        child: Text(
+          label,
+          style: _jak(
+            size: 12,
+            weight: FontWeight.w600,
+            color: active ? AppColors.surface : AppColors.ink,
+          ),
+        ),
       ),
+    );
+  }
+
+  // ── Empty state ───────────────────────────────────────────────────────────
+
+  Widget _buildEmptyState(bool nothingSaved) {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // ── Product image ─────────────────────────────────
-          Expanded(
-            flex: 5,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          Icon(
+            nothingSaved ? Icons.favorite_border : Icons.filter_list,
+            size: 52,
+            color: AppColors.textHint,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            nothingSaved ? 'Nothing saved yet' : 'No items in this category',
+            style: _sans(size: 16, weight: FontWeight.w600,
+                color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            nothingSaved
+                ? 'Tap ♥ on any listing to save it here'
+                : 'Try selecting a different category',
+            style: _mono(size: 10, color: AppColors.textHint),
+            textAlign: TextAlign.center,
+          ),
+          if (nothingSaved) ...[
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: widget.onExplore,
               child: Container(
-                width: double.infinity,
-                color: Colors.white,
-                child: Image.asset(item.image, fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Center(
-                    child: Icon(Icons.image_not_supported_outlined,
-                      size: 36, color: Colors.grey.shade300))),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 22, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.ink,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Explore listings',
+                  style: _sans(
+                    size: 14,
+                    weight: FontWeight.w700,
+                    color: AppColors.surface,
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
+        ],
+      ),
+    );
+  }
 
-          // ── Info ──────────────────────────────────────────
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+  // ── Product card — exact match to home_page.dart Trending card ─────────────
+
+  Widget _productCard(Product product) {
+    final fav = FavouriteManager.instance;
+    final idStr = product.id.toString();
+    final isLiked = fav.isFavourited(idStr);
+    final liveCount = fav.getCount(idStr);
+    final favCount = liveCount > 0 ? liveCount : product.favouritesCount;
+
+    final priceText = (product.price == 0 && product.type == 'RENT')
+        ? '฿0'
+        : (product.type == 'RENT' && product.rentPrice > 0)
+            ? 'เช่า ฿${_formatPrice(product.rentPrice)}'
+            : '฿${_formatPrice(product.price)}';
+
+    return GestureDetector(
+      onTap: () => _openProduct(product),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Image (big, flex like home Trending) ──────────────────
+            Expanded(
+              flex: 13,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _imageContent(product),
+                  // Category badge — top-left
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _categoryBadge(product.categoryName),
+                  ),
+                  // Type badge — top-right
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _typeBadge(product.type),
+                  ),
+                  // Condition badge — bottom-left (matches home Trending)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: _conditionBadge(product.condition),
+                  ),
+                ],
+              ),
+            ),
+            // ── Info ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name
-                  Text(item.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 13, color: _textDark),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 2),
-                  // Description
-                  Text(item.desc,
-                    style: TextStyle(fontSize: 9, color: _textMid, height: 1.3),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-
-                  const Spacer(),
-
-                  // ── Prices + heart ────────────────────────
+                  Text(
+                    product.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    // Plus Jakarta Sans — same as home_page Trending card
+                    style: _jak(size: 12, weight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    product.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _jak(size: 10, color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // ราคาเริ่มต้น
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('ราคาเริ่มต้น', style: TextStyle(
-                            fontSize: 7.5, color: _textMid, fontWeight: FontWeight.w500)),
-                          Text(item.salePrice, style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w800, color: _textDark)),
-                        ],
+                      Text(
+                        priceText,
+                        style: _jak(size: 13, weight: FontWeight.w800),
                       ),
-                      const SizedBox(width: 8),
-                      // ราคาเช่า
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('ราคาเช่า', style: TextStyle(
-                            fontSize: 7.5, color: _textMid, fontWeight: FontWeight.w500)),
-                          Text(item.rentPrice, style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w800, color: _textDark)),
-                        ],
-                      ),
-                      const Spacer(),
-                      // Heart button + count
                       GestureDetector(
-                        onTap: () => fav.toggle(item.id),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                        onTap: () =>
+                            fav.toggle(idStr, product: product),
+                        child: Row(
                           children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 30, height: 30,
-                              decoration: BoxDecoration(
-                                color: isLiked
-                                    ? _pink.withOpacity(0.15)
-                                    : const Color(0xFFFFEEF5),
-                                shape: BoxShape.circle),
-                              child: Icon(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
-                                size: 15,
-                                color: _pink),
+                            Icon(
+                              isLiked
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              size: 17,
+                              color: const Color(0xFFF48FB1),
                             ),
-                            if (count > 0) ...[
-                              const SizedBox(height: 2),
-                              Text('$count', style: TextStyle(
-                                fontSize: 8, color: _textMid,
-                                fontWeight: FontWeight.w600)),
-                            ],
+                            const SizedBox(width: 3),
+                            Text(
+                              '$favCount',
+                              style: _mono(
+                                size: 11,
+                                color: AppColors.textMuted,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -241,85 +430,88 @@ class _FavouritedPageState extends State<FavouritedPage> {
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // ── BOTTOM NAV (same style as HomePage) ──────────────────────
-  Widget _buildBottomNav() {
+  // ── Badges ─────────────────────────────────────────────────────────────────
+
+  Widget _typeBadge(String type) {
+    final isRent = type == 'RENT';
     return Container(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(
-          color: Colors.black.withOpacity(0.07),
-          blurRadius: 20, offset: const Offset(0, -4))],
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: SizedBox(
-        height: 64,
-        child: Row(
-          children: List.generate(_navLabels.length, (index) {
-            final isSell     = _navLabels[index] == 'Sell';
-            final isSelected = _selectedNav == index;
-
-            return Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  if (_navLabels[index] == 'Home') {
-                    Navigator.pop(context);
-                  } else if (_navLabels[index] != 'Favourited') {
-                    // Other tabs: just highlight (no navigation yet)
-                    setState(() => _selectedNav = index);
-                  }
-                  // 'Favourited' tab: already on this page, do nothing
-                },
-                child: Center(
-                  child: isSell
-                      ? Container(
-                          width: 50, height: 50,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF48FB1), Color(0xFFFFD54F)],
-                              begin: Alignment.topLeft, end: Alignment.bottomRight),
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(
-                              color: _pink.withOpacity(0.45),
-                              blurRadius: 12, offset: const Offset(0, 5))]),
-                          child: const Icon(Icons.add_rounded, color: Colors.white, size: 26))
-                      : AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected ? _pink.withOpacity(0.12) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12)),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AnimatedScale(
-                                scale: isSelected ? 1.15 : 1.0,
-                                duration: const Duration(milliseconds: 200),
-                                child: Icon(
-                                  isSelected
-                                      ? _navFilled[index]
-                                      : _navOutlined[index],
-                                  color: isSelected ? _deepPink : _inactive,
-                                  size: 22)),
-                              const SizedBox(height: 2),
-                              Text(_navLabels[index], style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                color: isSelected ? _deepPink : _inactive)),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
-            );
-          }),
+      child: Text(
+        isRent ? 'RENT' : 'SALE',
+        style: _mono(
+          size: 8,
+          color: isRent ? AppColors.accent : const Color(0xFF22C55E),
+          weight: FontWeight.w800,
         ),
+      ),
+    );
+  }
+
+  Widget _categoryBadge(String name) {
+    if (name.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        name,
+        style: _mono(
+            size: 8, color: AppColors.ink, weight: FontWeight.w700),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _conditionBadge(String condition) {
+    final label = _conditionLabel(condition);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.50),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: _mono(size: 8, color: Colors.white, weight: FontWeight.w700),
+      ),
+    );
+  }
+
+  // ── Image ──────────────────────────────────────────────────────────────────
+
+  Widget _imageContent(Product product) {
+    if (product.images.isEmpty) {
+      return Center(
+        child: Icon(Icons.image_not_supported_outlined,
+            size: 40, color: Colors.grey.shade300),
+      );
+    }
+    final imgPath = product.images.first;
+    final url = imgPath.startsWith('http')
+        ? imgPath
+        : '${AppConfig.uploadsUrl}/$imgPath';
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.contain,
+      placeholder: (_, __) => Center(
+        child: Icon(Icons.image_not_supported_outlined,
+            size: 40, color: Colors.grey.shade300),
+      ),
+      errorWidget: (_, __, ___) => Center(
+        child: Icon(Icons.image_not_supported_outlined,
+            size: 40, color: Colors.grey.shade300),
       ),
     );
   }

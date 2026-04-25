@@ -2,15 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/product.dart';
 import '../models/category.dart';
-
-// import 'package:shared_preferences/shared_preferences.dart'; // (ถ้ายังไม่ได้ใช้ Comment ไว้ก่อนได้)
+import '../config.dart';
 
 class ApiService {
-  // ⚠️ สำหรับรันบน Edge (Web) หรือ iOS Simulator ใช้ localhost ได้เลย
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
-
-  // ⚠️ ถ้าจะรัน Android Emulator ให้เปลี่ยนเป็น:
-  // static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static String get baseUrl => AppConfig.baseUrl;
 
   // 1. ฟังก์ชัน Verify (เช็ค User/Pass)
   static Future<Map<String, dynamic>> verifyUser(
@@ -115,7 +110,7 @@ class ApiService {
   }
 
   Future<List<Category>> getCategories() async {
-    final url = '$baseUrl/api/categories';
+    final url = '$baseUrl/categories';
 
     final response = await http.get(Uri.parse(url));
 
