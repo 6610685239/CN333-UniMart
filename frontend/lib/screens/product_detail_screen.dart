@@ -1124,7 +1124,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildBottomBar(double bottomPad) {
     final isRent = _product.type == 'RENT';
-    final canBuy = _product.status == 'AVAILABLE' && _product.quantity > 0;
+    final canBuy = _product.type == 'RENT'
+        ? _product.status == 'AVAILABLE'
+        : _product.quantity > 0 && _product.status != 'SOLD';
 
     final priceLabel = (isRent && _product.price == 0 && _product.rentPrice == 0)
         ? ''
