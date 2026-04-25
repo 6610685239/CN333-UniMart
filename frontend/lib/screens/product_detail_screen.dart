@@ -247,18 +247,76 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _deleteProduct() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ยืนยันการลบ'),
-        content: const Text('คุณแน่ใจหรือไม่ว่าจะลบสินค้านี้?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('ยกเลิก')),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('ลบ')),
-        ],
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.bg,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Delete listing',
+                style: GoogleFonts.sriracha(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '"${_product.title}" will be permanently removed and cannot be recovered.',
+                style: _jak(size: 13, color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(ctx, false),
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: AppColors.border, width: 1.5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text('Cancel',
+                            style: _jak(
+                                size: 14,
+                                color: AppColors.textMuted)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(ctx, true),
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Delete',
+                          style: _jak(
+                              size: 14,
+                              weight: FontWeight.w700,
+                              color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
     if (confirm == true) {
