@@ -181,7 +181,7 @@ async function getRoomDetail(roomId) {
 
   const product = await prisma.product.findUnique({
     where: { id: room.product_id },
-    select: { id: true, title: true, images: true, price: true, rentPrice: true, type: true, ownerId: true, status: true },
+    include: { category: true },
   });
 
   const buyer = await prisma.users.findUnique({
@@ -203,12 +203,17 @@ async function getRoomDetail(roomId) {
     product: product ? {
       id: product.id,
       title: product.title,
+      description: product.description || '',
       images: product.images || [],
       price: product.price,
       rentPrice: product.rentPrice,
       type: product.type,
       ownerId: product.ownerId,
       status: product.status,
+      quantity: product.quantity,
+      condition: product.condition || '',
+      location: product.location || '',
+      categoryName: product.category?.name || '',
     } : null,
     buyer: {
       id: room.buyer_id,

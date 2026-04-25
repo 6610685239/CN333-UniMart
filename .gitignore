@@ -1,22 +1,49 @@
-# Visual Studio
+# ── IDE / Editor ────────────────────────────────
 .vs/
 */.vs/
-
-# Node.js
-node_modules/
-backend/.env
-
-# Flutter
-frontend/.env
-frontend/build/
-.dart_tool/
 .idea/
 *.iml
+.vscode/
 
-# Markdown & design files
-*.md
+# ── Node / Backend ──────────────────────────────
+node_modules/
+backend/.env
+backend/uploads/
+backend/prisma/migrations/
+
+# ── Flutter / Frontend ──────────────────────────
+frontend/.env
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.pub-cache/
+frontend/.pub/
+
+# ── Dart tool (root) ────────────────────────────
+.dart_tool/
+
+# ── OS ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ────────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ── Design / Docs ───────────────────────────────
 unimart/
 wireframes_extracted/
 *.html
-backend/uploads/
+brief.md
+
+# ── Firebase ────────────────────────────────────
+frontend/.firebase/
+
+# ── Claude Code / AI tools ───────────────────────
 .claude/
+CLAUDE.md
+frontend/.agents/
+frontend/.windsurf/
+frontend/skills-lock.json

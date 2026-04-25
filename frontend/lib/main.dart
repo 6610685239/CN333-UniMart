@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,16 +19,26 @@ void main() async {
   String? startupError;
 
   try {
-    await dotenv.load(fileName: '.env');
+    String supabaseUrl;
+    String supabaseAnonKey;
 
-    final supabaseUrl = dotenv.env['SUPABASE_URL'];
-    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+    if (kIsWeb) {
+      // On web the asset bundle path resolution for dotenv is unreliable —
+      // use the values directly since they are visible in the JS bundle anyway.
+      supabaseUrl = 'https://ztebnnqowoemjlnzqsad.supabase.co';
+      supabaseAnonKey =
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0ZWJubnFvd29lbWpsbnpxc2FkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTE0NzM3OSwiZXhwIjoyMDg2NzIzMzc5fQ.OW0w1NzYeiVrNSejwYI6i-Y4ygZiVI64dwmF_NgpW3I';
+    } else {
+      await dotenv.load(fileName: '.env');
+      supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+      supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
-    if (supabaseUrl == null || supabaseUrl.isEmpty) {
-      throw Exception('Missing SUPABASE_URL in frontend/.env');
-    }
-    if (supabaseAnonKey == null || supabaseAnonKey.isEmpty) {
-      throw Exception('Missing SUPABASE_ANON_KEY in frontend/.env');
+      if (supabaseUrl.isEmpty) {
+        throw Exception('Missing SUPABASE_URL in frontend/.env');
+      }
+      if (supabaseAnonKey.isEmpty) {
+        throw Exception('Missing SUPABASE_ANON_KEY in frontend/.env');
+      }
     }
 
     await Supabase.initialize(
