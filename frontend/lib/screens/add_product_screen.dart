@@ -8,7 +8,6 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/filter_service.dart';
 import '../config.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
@@ -41,13 +40,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
   String _selectedCondition = 'มือหนึ่ง';
   String? _selectedCategoryId;
   String? _selectedCategoryName;
-  String? _selectedMeetingPointId;
-  String? _selectedMeetingPointName;
+  final _meetingPointCtrl = TextEditingController();
   List<XFile> _images = [];
 
   // ── Remote data ──
   List<Map<String, dynamic>> _categories = [];
-  List<Map<String, dynamic>> _meetingPoints = [];
 
   bool _isSubmitting = false;
   final _formKey = GlobalKey<FormState>();
@@ -67,6 +64,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _descCtrl.dispose();
     _priceCtrl.dispose();
     _quantityCtrl.dispose();
+    _meetingPointCtrl.dispose();
     super.dispose();
   }
 
@@ -86,10 +84,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
         }
       }
     } catch (_) {}
-    try {
-      final points = await FilterService.getMeetingPoints();
-      if (mounted) setState(() => _meetingPoints = points);
-    } catch (_) {}
     await _loadDraft();
   }
 
@@ -106,8 +100,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       'condition': _selectedCondition,
       'categoryId': _selectedCategoryId ?? '',
       'categoryName': _selectedCategoryName ?? '',
-      'meetingPointId': _selectedMeetingPointId ?? '',
-      'meetingPointName': _selectedMeetingPointName ?? '',
+      'meetingPoint': _meetingPointCtrl.text,
       if (!kIsWeb)
         'imagePaths': _images.map((f) => f.path).toList(),
     };
@@ -132,10 +125,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           _selectedCategoryId = data['categoryId'];
           _selectedCategoryName = data['categoryName'];
         }
-        if ((data['meetingPointId'] as String).isNotEmpty) {
-          _selectedMeetingPointId = data['meetingPointId'];
-          _selectedMeetingPointName = data['meetingPointName'];
-        }
+        _meetingPointCtrl.text = data['meetingPoint'] ?? '';
         if (!kIsWeb && data['imagePaths'] != null) {
           final paths = List<String>.from(data['imagePaths'] as List);
           _images = paths
@@ -214,8 +204,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
         req.fields['rentPrice'] = _priceCtrl.text.trim();
       }
 
-      if (_selectedMeetingPointId != null) {
-        req.fields['meetingPointId'] = _selectedMeetingPointId!;
+      if (_meetingPointCtrl.text.trim().isNotEmpty) {
+        req.fields['location'] = _meetingPointCtrl.text.trim();
       }
 
       for (final file in _images) {
@@ -281,6 +271,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             descCtrl: _descCtrl,
             priceCtrl: _priceCtrl,
             quantityCtrl: _quantityCtrl,
+            meetingPointCtrl: _meetingPointCtrl,
             conditions: _conditions,
             selectedCondition: _selectedCondition,
             onConditionChanged: (c) => setState(() => _selectedCondition = c),
@@ -289,12 +280,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
             onCategoryChanged: (id, name) => setState(() {
               _selectedCategoryId = id;
               _selectedCategoryName = name;
-            }),
-            meetingPoints: _meetingPoints,
-            selectedMeetingPointId: _selectedMeetingPointId,
-            onMeetingPointChanged: (id, name) => setState(() {
-              _selectedMeetingPointId = id;
-              _selectedMeetingPointName = name;
             }),
             onSaveDraft: _saveDraft,
             onPreview: () {
@@ -311,7 +296,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             condition: _selectedCondition,
             categoryName: _selectedCategoryName ?? '',
             description: _descCtrl.text,
-            meetingPoint: _selectedMeetingPointName ?? '',
+            meetingPoint: _meetingPointCtrl.text,
             images: _images,
             isSubmitting: _isSubmitting,
             onPublish: _submit,
@@ -505,9 +490,7 @@ class _SellForm extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
   final String? selectedCategoryId;
   final void Function(String id, String name) onCategoryChanged;
-  final List<Map<String, dynamic>> meetingPoints;
-  final String? selectedMeetingPointId;
-  final void Function(String id, String name) onMeetingPointChanged;
+  final TextEditingController meetingPointCtrl;
   final VoidCallback onSaveDraft;
   final VoidCallback onPreview;
 
@@ -527,9 +510,7 @@ class _SellForm extends StatelessWidget {
     required this.categories,
     required this.selectedCategoryId,
     required this.onCategoryChanged,
-    required this.meetingPoints,
-    required this.selectedMeetingPointId,
-    required this.onMeetingPointChanged,
+    required this.meetingPointCtrl,
     required this.onSaveDraft,
     required this.onPreview,
   });
@@ -624,7 +605,10 @@ class _SellForm extends StatelessWidget {
                 // ── Meeting point ──
                 _sectionLabel('Meeting point'),
                 const SizedBox(height: 6),
-                _buildMeetingPointDropdown(),
+                _buildInput(
+                  controller: meetingPointCtrl,
+                  hint: 'e.g. SC Building Lobby, Dome Canteen',
+                ),
               ],
             ),
           ),
@@ -799,41 +783,6 @@ class _SellForm extends StatelessWidget {
           ),
         );
       }).toList(),
-    );
-  }
-
-  // ── Meeting point ──
-
-  Widget _buildMeetingPointDropdown() {
-    return _FieldBox(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-          value: selectedMeetingPointId,
-          isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded,
-              color: AppColors.textMuted),
-          hint: Text('Select meeting point',
-              style:
-                  AppTextStyles.bodyS.copyWith(color: AppColors.textHint)),
-          style: AppTextStyles.bodyS.copyWith(color: AppColors.ink),
-          items: meetingPoints
-              .map((mp) => DropdownMenuItem<String>(
-                    value: mp['id'].toString(),
-                    child: Text('${mp['name']} (${mp['zone']})'),
-                  ))
-              .toList(),
-          onChanged: (val) {
-            if (val == null) return;
-            final mp = meetingPoints.firstWhere(
-                (m) => m['id'].toString() == val);
-            onMeetingPointChanged(
-                val, '${mp['name']} (${mp['zone']})');
-          },
-          ),
-        ),
-      ),
     );
   }
 
@@ -1116,127 +1065,130 @@ class _SellPreview extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
             children: [
-              // ── Preview card ──
+              // ── Preview card — same structure as home page card, bigger ──
               Container(
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  border: Border.all(
-                    color: AppColors.accent,
-                    width: 1.5,
-                    style: BorderStyle.none,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border, width: 1.5),
                 ),
-                child: CustomPaint(
-                  painter: _DashedRectPainter(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Image — homepage card style, very big
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(13)),
-                        child: SizedBox(
-                          height: 300,
-                          width: double.infinity,
-                          child: Stack(
-                            fit: StackFit.expand,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Image area with badges
+                    SizedBox(
+                      height: 280,
+                      width: double.infinity,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            color: AppColors.bg,
+                            child: images.isNotEmpty
+                                ? _previewImage()
+                                : const Center(
+                                    child: Icon(Icons.image_outlined,
+                                        size: 56, color: AppColors.textHint),
+                                  ),
+                          ),
+                          // Category badge — top-left
+                          if (categoryName.isNotEmpty)
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: _OverlayBadge(
+                                label: categoryName,
+                                textColor: AppColors.ink,
+                              ),
+                            ),
+                          // Type badge — top-right
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: _OverlayBadge(
+                              label: type == 'SALE' ? 'SALE' : 'RENT',
+                              textColor: type == 'SALE'
+                                  ? const Color(0xFF22C55E)
+                                  : AppColors.accent,
+                            ),
+                          ),
+                          // Condition badge — bottom-left
+                          if (condition.isNotEmpty)
+                            Positioned(
+                              bottom: 8,
+                              left: 8,
+                              child: _OverlayBadgeDark(
+                                label: _shortCondition(condition),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Info section
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title.isEmpty ? 'Untitled' : title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily:
+                                  GoogleFonts.plusJakartaSans().fontFamily,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            description.isEmpty ? 'No description' : description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily:
+                                  GoogleFonts.plusJakartaSans().fontFamily,
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Container(
-                                color: AppColors.surface,
-                                child: images.isNotEmpty
-                                    ? _previewImage()
-                                    : const Center(
-                                        child: Icon(Icons.image_outlined,
-                                            size: 56,
-                                            color: AppColors.textHint),
-                                      ),
-                              ),
-                              // Category badge — top-left
-                              if (categoryName.isNotEmpty)
-                                Positioned(
-                                  top: 10,
-                                  left: 10,
-                                  child: _OverlayBadge(
-                                    label: categoryName,
-                                    textColor: AppColors.ink,
-                                  ),
-                                ),
-                              // Type badge — top-right
-                              Positioned(
-                                top: 10,
-                                right: 10,
-                                child: _OverlayBadge(
-                                  label: type == 'SALE' ? 'SALE' : 'RENT',
-                                  textColor: type == 'SALE'
-                                      ? const Color(0xFF22C55E)
-                                      : AppColors.accent,
+                              Text(
+                                '฿$price',
+                                style: TextStyle(
+                                  fontFamily:
+                                      GoogleFonts.plusJakartaSans().fontFamily,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.ink,
                                 ),
                               ),
-                              // Condition badge — bottom-left
-                              if (condition.isNotEmpty)
-                                Positioned(
-                                  bottom: 10,
-                                  left: 10,
-                                  child: _OverlayBadgeDark(
-                                    label: _shortCondition(condition),
+                              Row(children: [
+                                const Icon(Icons.favorite_border_rounded,
+                                    size: 14, color: AppColors.textHint),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '0',
+                                  style: TextStyle(
+                                    fontFamily:
+                                        GoogleFonts.jetBrainsMono().fontFamily,
+                                    fontSize: 9,
+                                    color: AppColors.textHint,
                                   ),
                                 ),
+                              ]),
                             ],
                           ),
-                        ),
+                        ],
                       ),
-                      // Details
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              _Badge(
-                                  label: type == 'SALE'
-                                      ? 'FOR SALE'
-                                      : 'FOR RENT'),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  '$categoryName · $condition · $quantity in stock',
-                                  style: AppTextStyles.caption
-                                      .copyWith(color: AppColors.textMuted),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ]),
-                            const SizedBox(height: 6),
-                            Text(
-                              title.isEmpty ? 'Untitled' : title,
-                              style: AppTextStyles.titleS
-                                  .copyWith(color: AppColors.ink),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '฿$price',
-                              style: GoogleFonts.sriracha(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.ink,
-                              ),
-                            ),
-                            if (description.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                description,
-                                style: AppTextStyles.caption
-                                    .copyWith(color: AppColors.textMuted),
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
@@ -1372,27 +1324,6 @@ class _Check {
   const _Check(this.mark, this.label, this.pass);
 }
 
-class _Badge extends StatelessWidget {
-  final String label;
-  const _Badge({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.accent,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.tagline.copyWith(
-            color: AppColors.ink, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-}
-
 // ── Overlay badges (homepage card style) ──
 
 class _OverlayBadge extends StatelessWidget {
@@ -1446,31 +1377,3 @@ class _OverlayBadgeDark extends StatelessWidget {
   }
 }
 
-// ── Dashed border rect painter (for preview card) ──
-
-class _DashedRectPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const dash = 8.0;
-    const gap = 4.0;
-    final paint = Paint()
-      ..color = AppColors.accent
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    final r = RRect.fromRectAndRadius(
-        Offset.zero & size, const Radius.circular(14));
-    final path = Path()..addRRect(r);
-    final metrics = path.computeMetrics();
-    for (final m in metrics) {
-      double dist = 0;
-      while (dist < m.length) {
-        final end = (dist + dash).clamp(0.0, m.length);
-        canvas.drawPath(m.extractPath(dist, end), paint);
-        dist += dash + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedRectPainter old) => false;
-}

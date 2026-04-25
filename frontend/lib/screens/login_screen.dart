@@ -258,9 +258,12 @@ class _LoginScreenState extends State<LoginScreen> {
             suffix: GestureDetector(
               onTap: () =>
                   setState(() => _isPasswordVisible = !_isPasswordVisible),
-              child: Text(
-                _isPasswordVisible ? 'hide' : 'show',
-                style: _jak(size: 13, color: AppColors.textMuted),
+              child: Icon(
+                _isPasswordVisible
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size: 20,
+                color: AppColors.textMuted,
               ),
             ),
           ),
