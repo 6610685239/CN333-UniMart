@@ -121,6 +121,18 @@ class TransactionService {
     }
   }
 
+  /// GET /api/transactions/:id — single transaction by ID
+  static Future<Transaction?> getTransactionById(String id) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/transactions/$id'));
+      if (res.statusCode == 200) {
+        return Transaction.fromJson(
+            jsonDecode(res.body) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// ดึงรายการธุรกรรมของผู้ใช้ (grouped by status)
   /// GET /api/transactions/user/:userId
   /// Returns Map with keys: processing, shipping, history, canceled

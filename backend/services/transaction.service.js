@@ -221,6 +221,18 @@ async function getUserTransactions(userId) {
   };
 }
 
+async function getTransactionById(id) {
+  const transaction = await prisma.transaction.findUnique({
+    where: { id: parseInt(id) },
+    include: {
+      product: { select: { id: true, title: true, price: true, rentPrice: true, images: true, status: true } },
+      buyer: { select: { id: true, display_name_th: true, username: true, avatar: true } },
+      seller: { select: { id: true, display_name_th: true, username: true, avatar: true } },
+    },
+  });
+  return transaction;
+}
+
 module.exports = {
   createTransaction,
   confirmTransaction,
@@ -228,5 +240,6 @@ module.exports = {
   returnTransaction,
   completeTransaction,
   cancelTransaction,
-  getUserTransactions
+  getUserTransactions,
+  getTransactionById,
 };

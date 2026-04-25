@@ -178,7 +178,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) return;
     if (_images.isEmpty) {
       _snack('Please add at least 1 photo');
       return;
