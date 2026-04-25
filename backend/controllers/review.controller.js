@@ -51,4 +51,14 @@ async function getCreditScore(req, res) {
   }
 }
 
-module.exports = { create, getUserReviews, getCreditScore };
+async function checkReview(req, res) {
+  const { transactionId, reviewerId } = req.params;
+  try {
+    const result = await reviewService.checkReview(transactionId, reviewerId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ hasReviewed: false });
+  }
+}
+
+module.exports = { create, getUserReviews, getCreditScore, checkReview };

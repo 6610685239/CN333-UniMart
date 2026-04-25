@@ -25,6 +25,7 @@ class Transaction {
   final Map<String, dynamic>? product;
   final Map<String, dynamic>? buyer;
   final Map<String, dynamic>? seller;
+  final bool hasReviewed;
 
   Transaction({
     required this.id,
@@ -40,6 +41,7 @@ class Transaction {
     this.product,
     this.buyer,
     this.seller,
+    this.hasReviewed = false,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -61,8 +63,9 @@ class Transaction {
       product: json['product'] != null
           ? Map<String, dynamic>.from(json['product'])
           : null,
-        buyer: _normalizeUserSummary(json['buyer']),
-        seller: _normalizeUserSummary(json['seller']),
+      buyer: _normalizeUserSummary(json['buyer']),
+      seller: _normalizeUserSummary(json['seller']),
+      hasReviewed: json['hasReviewed'] == true,
     );
   }
 

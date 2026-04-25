@@ -12,3 +12,11 @@ frontend/build/
 .dart_tool/
 .idea/
 *.iml
+
+# Markdown & design files
+*.md
+unimart/
+wireframes_extracted/
+*.html
+backend/uploads/
+.claude/

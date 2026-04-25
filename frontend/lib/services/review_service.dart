@@ -55,6 +55,20 @@ class ReviewService {
     }
   }
 
+  /// เช็คว่ารีวิวแล้วหรือยัง
+  /// GET /api/reviews/check/:transactionId/:reviewerId
+  static Future<bool> hasReviewed(int transactionId, String reviewerId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/reviews/check/$transactionId/$reviewerId'),
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body)['hasReviewed'] == true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   /// ดึง Credit Score ของผู้ใช้
   /// GET /api/reviews/credit/:userId
   static Future<Map<String, dynamic>> getCreditScore(String userId) async {

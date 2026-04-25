@@ -112,6 +112,25 @@ async function shipTransaction(id) {
   return { transaction: updated };
 }
 
+async function returnTransaction(id) {
+  const transaction = await prisma.transaction.findUnique({
+    where: { id: parseInt(id) }
+  });
+
+  if (!transaction) return { error: 'NOT_FOUND' };
+  if (transaction.type !== 'RENT') return { error: 'NOT_RENT' };
+  if (transaction.status !== 'SHIPPING') {
+    return { error: 'INVALID_STATUS', currentStatus: transaction.status };
+  }
+
+  const updated = await prisma.transaction.update({
+    where: { id: transaction.id },
+    data: { status: 'RETURNING' }
+  });
+
+  return { transaction: updated };
+}
+
 async function completeTransaction(id) {
   const transaction = await prisma.transaction.findUnique({
     where: { id: parseInt(id) }
@@ -121,7 +140,10 @@ async function completeTransaction(id) {
     return { error: 'NOT_FOUND' };
   }
 
-  if (transaction.status !== 'SHIPPING') {
+  const isRent = transaction.type === 'RENT';
+  const validFrom = isRent ? 'RETURNING' : 'SHIPPING';
+
+  if (transaction.status !== validFrom) {
     return { error: 'INVALID_STATUS', currentStatus: transaction.status };
   }
 
@@ -132,7 +154,7 @@ async function completeTransaction(id) {
     }),
     prisma.product.update({
       where: { id: transaction.productId },
-      data: { status: 'SOLD' }
+      data: { status: isRent ? 'AVAILABLE' : 'SOLD' }
     })
   ]);
 
@@ -178,18 +200,24 @@ async function getUserTransactions(userId) {
       ]
     },
     include: {
-      product: { select: { id: true, title: true, price: true, images: true, status: true } },
-      buyer: { select: { id: true, display_name_th: true, username: true } },
-      seller: { select: { id: true, display_name_th: true, username: true } }
+      product: { select: { id: true, title: true, price: true, rentPrice: true, images: true, status: true } },
+      buyer: { select: { id: true, display_name_th: true, username: true, avatar: true } },
+      seller: { select: { id: true, display_name_th: true, username: true, avatar: true } },
+      reviews: { where: { reviewerId: userId }, select: { id: true } },
     },
     orderBy: { updatedAt: 'desc' }
   });
 
+  const withReviewed = transactions.map(({ reviews, ...t }) => ({
+    ...t,
+    hasReviewed: reviews.length > 0,
+  }));
+
   return {
-    processing: transactions.filter(t => t.status === 'PENDING' || t.status === 'PROCESSING'),
-    shipping: transactions.filter(t => t.status === 'SHIPPING'),
-    history: transactions.filter(t => t.status === 'COMPLETED'),
-    canceled: transactions.filter(t => t.status === 'CANCELED')
+    processing: withReviewed.filter(t => t.status === 'PENDING' || t.status === 'PROCESSING'),
+    shipping: withReviewed.filter(t => t.status === 'SHIPPING'),
+    history: withReviewed.filter(t => t.status === 'COMPLETED'),
+    canceled: withReviewed.filter(t => t.status === 'CANCELED'),
   };
 }
 
@@ -197,6 +225,7 @@ module.exports = {
   createTransaction,
   confirmTransaction,
   shipTransaction,
+  returnTransaction,
   completeTransaction,
   cancelTransaction,
   getUserTransactions

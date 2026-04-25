@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'features/onboarding/presentation/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/chat_list_screen.dart';
@@ -107,7 +108,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // จุดเริ่มต้นของแอป: ต้องบังคับให้มาหน้า Login ก่อนเสมอ
-      home: const LoginScreen(),
+      home: const SplashScreen(),
       // Named routes for navigation
       onGenerateRoute: (settings) {
         switch (settings.name) {
@@ -155,6 +156,11 @@ class MyApp extends StatelessWidget {
                 transactionId: args['transactionId'],
                 reviewerId: args['reviewerId'],
                 revieweeId: args['revieweeId'],
+                revieweeName: args['revieweeName'] ?? '',
+                revieweeAvatar: args['revieweeAvatar'],
+                productTitle: args['productTitle'] ?? '',
+                productPrice: (args['productPrice'] as num?)?.toDouble() ?? 0.0,
+                productType: args['productType'] ?? 'SALE',
               ),
             );
           default:

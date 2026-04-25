@@ -67,8 +67,16 @@ async function getCreditScore(userId) {
   };
 }
 
+async function checkReview(transactionId, reviewerId) {
+  const existing = await prisma.review.findFirst({
+    where: { transactionId: parseInt(transactionId), reviewerId }
+  });
+  return { hasReviewed: !!existing };
+}
+
 module.exports = {
   createReview,
   getUserReviews,
-  getCreditScore
+  getCreditScore,
+  checkReview
 };

@@ -3,22 +3,26 @@ import '../models/product.dart';
 import '../services/api_service.dart';
 import '../pages/home_page.dart';
 
-// home_screen.dart ทำหน้าที่เป็น bridge ไปหน้า HomePage ของเรา
-// login_screen.dart ยังคง import 'home_screen.dart' เหมือนเดิม ไม่ต้องแก้อะไร
-
 class HomeScreen extends StatefulWidget {
-  final String currentUserId; // รับ ID เรามา เพื่อจะได้กรองของตัวเองออก
+  final String currentUserId;
+  final int unreadNotificationCount;
+  final VoidCallback? onNotificationTap;
 
-  const HomeScreen({super.key, required this.currentUserId});
+  const HomeScreen({
+    super.key,
+    required this.currentUserId,
+    this.unreadNotificationCount = 0,
+    this.onNotificationTap,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ApiService api = ApiService();
-  List<Product> products = [];
-  bool isLoading = true;
+  final ApiService _api = ApiService();
+  List<Product> _products = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -28,25 +32,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchProducts() async {
     try {
-      final allProducts = await api.getProducts();
-      setState(() {
-        // แสดงสินค้าทั้งหมด (รวมของตัวเอง — เจ้าของจะเห็นแต่ซื้อ/เช่าไม่ได้)
-        products = allProducts;
-        isLoading = false;
-      });
+      final all = await _api.getProducts();
+      if (mounted) {
+        setState(() {
+          _products = all;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      print("Error loading home: $e");
-      setState(() => isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return HomePage(
-      products: products,
-      isLoading: isLoading,
+      products: _products,
+      isLoading: _isLoading,
       onRetry: _fetchProducts,
       currentUserId: widget.currentUserId,
+      unreadNotificationCount: widget.unreadNotificationCount,
+      onNotificationTap: widget.onNotificationTap,
     );
   }
 }
