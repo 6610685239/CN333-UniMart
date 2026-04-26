@@ -1,141 +1,127 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=32&pause=1000&color=7B1A1A&center=true&vCenter=true&width=600&lines=UniMart;Second-Hand+Marketplace;Thammasat+University" alt="UniMart" />
+<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=32&pause=1000&color=7B1A1A&center=true&vCenter=true&width=800&lines=UniMart;Second-Hand+Marketplace+for+TU;Secure+Campus+Trading+Platform" alt="UniMart Typing" />
 
-**A second-hand marketplace exclusively for Thammasat University students.**
-Buy, sell, and rent items within your campus — verified TU accounts only.
+<br/>
+
+A secure **Second-Hand Marketplace** exclusively for **Thammasat University students**.  
+Buy, sell, and rent items within your campus — powered by **verified TU accounts only**.
+
+---
+
+![Platform](https://img.shields.io/badge/Platform-Mobile_%26_Web-7B1A1A?style=flat-square)
+![Backend](https://img.shields.io/badge/Backend-Node.js_Express-black?style=flat-square)
+![Frontend](https://img.shields.io/badge/Frontend-Flutter-blue?style=flat-square)
+![Database](https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Active_Development-8B0000?style=flat-square)
 
 </div>
 
 ---
 
-## Overview
+## Course & Institution
 
-UniMart is a full-stack marketplace application gated behind Thammasat University's RESTful API. Users must verify their TU credentials before registering a UniMart account, ensuring the platform is limited to real TU students.
-
----
-
-## Tech Stack
-
-### Frontend
-- Flutter / Dart SDK ^3.8.1
-- Supabase Flutter — storage and RLS-protected tables
-- Socket.IO Client — real-time chat and notifications
-- shared_preferences — JWT and favourites persistence
-- Firebase Hosting
-
-### Backend
-- Node.js / Express 5
-- Prisma ORM — PostgreSQL via Supabase connection pooler
-- Socket.IO — real-time chat and notification events
-- JWT (30-day) + bcrypt — authentication and password hashing
-- Multer — file upload handling
-- Jest + fast-check — property-based and integration testing
-- Railway
-
-### Database / Storage
-- PostgreSQL on Supabase
-- Supabase Storage — product images and avatars
-- Supabase RLS — row-level security policies
+> **Course:** CN333 (Software Development Practice)  
+> **Institution:** Thammasat University  
 
 ---
 
-## Architecture
-
-```
-Flutter → REST API (Express) → Prisma → PostgreSQL (Supabase)
-Flutter ↔ Socket.IO (Express) — chat and notifications
-Flutter → Supabase SDK (direct) — RLS-protected tables
-```
-
-Two separate apps in one repository:
-
-| Directory | Description |
-|-----------|-------------|
-| `backend/` | Node.js/Express REST API + Socket.IO, port 3000 |
-| `frontend/` | Flutter cross-platform app (Android, iOS, Web, Desktop) |
-
----
-
-## Getting Started
-
-### Backend
-```bash
-cd backend
-npm install
-npx prisma generate
-npx prisma db push
-node server.js
-```
-
-### Frontend
-```bash
-cd frontend
-flutter pub get
-flutter run -d chrome
-```
-
-### Environment Variables
-
-**backend/.env**
-```
-SUPABASE_URL=
-SUPABASE_KEY=
-DATABASE_URL=
-DIRECT_URL=
-TU_API_KEY=
-```
-
-**frontend/.env**
-```
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-```
-
----
-
-## Security
-
-| Layer | Implementation |
-|-------|---------------|
-| Student verification | TU RESTful API — real TU accounts only |
-| Authentication | JWT (30-day) + bcrypt password hashing |
-| Database access | Supabase RLS — anon role restricted to public data only |
-| Key management | Publishable key for frontend, secret key for backend only |
-| Build-time secrets | `--dart-define` — keys injected at build time, not in source |
-| Secret storage | `.env` gitignored, secrets stored in Railway and Firebase env vars |
-| Transport | HTTPS enforced on both Firebase Hosting and Railway |
-
----
-
-## Testing
-
-```bash
-cd backend
-npm test
-```
-
-20 test files covering auth, chat, transactions, reviews, filters, and notifications — including property-based tests with fast-check and integration tests with supertest.
-
----
-
-## Deployment
-
-| Service | Platform |
-|---------|----------|
-| Backend API | Railway — auto-deploy on push |
-| Frontend Web | Firebase Hosting — manual build and deploy |
-
-**Frontend build command:**
-```bash
-flutter build web \
-  --dart-define=SUPABASE_URL=your_url \
-  --dart-define=SUPABASE_ANON_KEY=your_publishable_key
-firebase deploy
-```
-
----
+## Tech Stack & Ecosystem
 
 <div align="center">
-CN333 · Thammasat University · 2026
+
+| Mobile App | Backend API | Database & Storage |
+| :---: | :---: | :---: |
+| ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) | ![NodeJS](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white) |
+| ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white) | ![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white) | ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white) |
+
+| Real-time & Auth | Storage | Deployment |
+| :---: | :---: | :---: |
+| ![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white) | ![Supabase Storage](https://img.shields.io/badge/Supabase_Storage-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white) | ![Railway](https://img.shields.io/badge/Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white) |
+| ![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white) | ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white) | ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black) |
+
 </div>
+
+---
+
+## Key Features
+
+### Verified Student Marketplace
+* Access restricted via Thammasat University API integration.
+* Registration and trading restricted to verified TU student credentials.
+
+### Real-Time Communication
+* Instant messaging infrastructure powered by Socket.IO.
+* Push notifications for new messages, offers, and listing updates.
+
+### Transaction Management
+* Modular system for buying, selling, and renting campus items.
+* Detailed listing management with multi-image support and categorized browsing.
+
+### Data Persistence & Security
+* Local data persistence using `shared_preferences` for improved UX.
+* Secure media handling via Supabase Storage with Row-Level Security (RLS) policies.
+
+---
+
+## Architecture Overview
+
+The platform utilizes a modern decoupled architecture to ensure scalability and security:
+
+* **Data Flow:** `Flutter` → `REST API (Express)` → `Prisma ORM` → `PostgreSQL (Supabase)`
+* **Real-Time Engine:** `Flutter` ↔ `Socket.IO (Express)` for low-latency chat services.
+* **Asset Management:** `Flutter` → `Supabase Storage` for secure, authenticated media uploads.
+
+---
+
+## Deployment Configuration
+
+| Service | Platform | Purpose |
+| :--- | :--- | :--- |
+| **Backend API** | Railway | Node.js / Express Environment |
+| **Frontend Web** | Firebase Hosting | Production Web Delivery |
+| **Database** | Supabase | Managed PostgreSQL & Auth |
+| **Storage** | Supabase | S3-Compatible Media Storage |
+
+---
+
+## Project Members
+
+<table>
+  <thead>
+    <tr>
+      <th align="center">Student ID</th>
+      <th align="left">Name</th>
+      <th align="left">Role & Responsibility</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center"><b>6610685056</b></td>
+      <td>Chonchanan Jitrawang</td>
+      <td>Full-stack</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685098</b></td>
+      <td>Kittidet Wichaidit</td>
+      <td>Backend Developer</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685122</b></td>
+      <td>Chayawat Kanjanakaew</td>
+      <td>System Analyst & QA Tester</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685205</b></td>
+      <td>Nonthapat Boonprasith</td>
+      <td>UX/UI & Frontend Developer</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685239</b></td>
+      <td>Parunchai Timklip</td>
+      <td>DevOps & Database</td>
+    </tr>
+  </tbody>
+</table>
+
+---
