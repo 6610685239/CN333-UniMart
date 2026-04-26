@@ -169,41 +169,6 @@ async function loginUser(username, password) {
   return { user: safeUser, token };
 }
 
-async function changePassword(userId, currentPassword, newPassword) {
-  console.log('changePassword called for userId:', userId);
-  
-  const { data: user, error: fetchError } = await supabase
-    .from('users')
-    .select('id, password_hash')
-    .eq('id', userId)
-    .single();
-
-  if (fetchError) {
-    console.error('changePassword fetch error:', fetchError.message);
-    return { error: 'NOT_FOUND' };
-  }
-
-  if (!user) return { error: 'NOT_FOUND' };
-  if (!user.password_hash) return { error: 'NO_PASSWORD' };
-
-  const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
-  console.log('Password match:', isMatch);
-  if (!isMatch) return { error: 'WRONG_PASSWORD' };
-
-  const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  const { error: updateError } = await supabase
-    .from('users')
-    .update({ password_hash: newHash })
-    .eq('id', userId);
-
-  if (updateError) {
-    console.error('changePassword update error:', updateError.message);
-    throw new Error(updateError.message);
-  }
-
-  return { success: true };
-}
-
 async function getUserProfile(userId) {
   const { data: user, error } = await supabase
     .from('users')
@@ -233,7 +198,6 @@ module.exports = {
   buildTuProfile,
   registerUser,
   loginUser,
-  changePassword,
   getUserProfile,
   updateUserProfile
 };

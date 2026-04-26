@@ -15,7 +15,6 @@ import '../services/review_service.dart';
 import '../services/transaction_service.dart';
 import '../config.dart';
 import '../shared/theme/app_colors.dart';
-import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 import 'my_shop_screen.dart';
@@ -945,17 +944,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     MaterialPageRoute(
                         builder: (_) =>
                             NotificationScreen(userId: widget.userId)),
-                  ),
-                ),
-                _menuDivider(),
-                _menuRow(
-                  title: 'Change password',
-                  sub: null,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            ChangePasswordScreen(userId: widget.userId)),
                   ),
                 ),
               ],
