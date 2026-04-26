@@ -1,342 +1,141 @@
-# CN333-UniMart 🏪
+<div align="center">
 
-> **Second-hand Marketplace for Thammasat University Students**  
-> วิชา CN333 – Mobile & Web Application Development
+<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=32&pause=1000&color=7B1A1A&center=true&vCenter=true&width=600&lines=UniMart;Second-Hand+Marketplace;Thammasat+University" alt="UniMart" />
 
-UniMart เป็นแอปพลิเคชัน Marketplace สำหรับนักศึกษามหาวิทยาลัยธรรมศาสตร์ ใช้สำหรับ **ซื้อ-ขาย-เช่า** สินค้ามือสองภายในมหาวิทยาลัย โดยยืนยันตัวตนผ่านระบบ TU API เพื่อให้แน่ใจว่าผู้ใช้ทุกคนเป็นนักศึกษาหรือบุคลากรของธรรมศาสตร์
+**A second-hand marketplace exclusively for Thammasat University students.**
+Buy, sell, and rent items within your campus — verified TU accounts only.
 
----
-
-## ✨ Features
-
-### 🔐 Authentication
-- ยืนยันตัวตนผ่าน **TU RESTful API** (reg.tu.ac.th)
-- ลงทะเบียนด้วยรหัสผ่าน UniMart (แยกจากรหัสผ่าน TU)
-- JWT-based session management (30 วัน)
-- เปลี่ยนรหัสผ่าน UniMart ได้
-
-### 🛍️ Product Management
-- ลงขาย/ให้เช่าสินค้า พร้อมอัปโหลดรูปสูงสุด **5 รูป**
-- ระบบ **จำนวนสินค้า (Quantity/Stock)** — รองรับขายหลายชิ้น
-- 9 หมวดหมู่สินค้า: เสื้อผ้า, อิเล็กทรอนิกส์, หนังสือ, กีฬา, เครื่องเขียน ฯลฯ
-- ค้นหาและกรองสินค้าตาม: หมวดหมู่, ราคา, สภาพ, ประเภท (ขาย/เช่า), สถานะ, จุดนัดพบ
-
-### 🏠 Homepage
-- **Trending Now 🔥** — สินค้ายอดนิยมเรียงตาม Favourites
-- **Recently Add ✨** — สินค้าลงขายล่าสุด
-- หมวดหมู่สินค้าแบบ Horizontal Scroll
-- กดหัวใจ ❤️ เพื่อบันทึกสินค้าที่สนใจ
-
-### 💬 Real-time Chat (Socket.IO)
-- แชทระหว่างผู้ซื้อ-ผู้ขายแบบ Real-time
-- ส่งข้อความ Text, รูปภาพ
-- ปักหมุด (Pin) ห้องแชทที่สำคัญ
-- อ่านแล้ว/ยังไม่อ่าน (Read receipts)
-- รายงานห้องแชทที่ไม่เหมาะสม
-
-### 💰 Transaction System
-- สถานะธุรกรรม: `PENDING` → `PROCESSING` → `SHIPPING` → `COMPLETED`
-- ยกเลิกธุรกรรมได้ (คืน Stock อัตโนมัติ)
-- เมื่อซื้อสินค้า จำนวนลดลงอัตโนมัติ, หมด = หยุดขาย
-- ระบุจุดนัดพบ (Meeting Point) ภายในมหาวิทยาลัย
-
-### ⭐ Review & Credit Score
-- รีวิวผู้ซื้อ/ผู้ขายหลังทำธุรกรรมสำเร็จ (1-5 ดาว)
-- คะแนนเฉลี่ย Credit Score แสดงในโปรไฟล์
-
-### 🔔 Notifications
-- การแจ้งเตือนสำหรับธุรกรรม, แชท
-- จัดการ Unread Count
-
-### 👤 User Profiles
-- โปรไฟล์ส่วนตัว: ร้านค้า, ธุรกรรม, ตั้งค่า
-- โปรไฟล์ผู้ขาย (Read-only): ดูข้อมูลผู้ขาย, Credit Score, สินค้า
+</div>
 
 ---
 
-## 🏗️ Tech Stack
+## Overview
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | Flutter (Dart SDK ^3.8.1) |
-| **Backend** | Node.js + Express 5.2.1 |
-| **Database** | PostgreSQL (Supabase) |
-| **ORM** | Prisma 6.19 |
-| **Real-time** | Socket.IO 4.8 |
-| **Auth** | JWT + bcrypt + TU RESTful API |
-| **File Upload** | Multer 2.0 (Disk Storage) |
-| **State Management** | StatefulWidget + SharedPreferences |
+UniMart is a full-stack marketplace application gated behind Thammasat University's RESTful API. Users must verify their TU credentials before registering a UniMart account, ensuring the platform is limited to real TU students.
 
 ---
 
-## 📁 Project Structure
+## Tech Stack
+
+### Frontend
+- Flutter / Dart SDK ^3.8.1
+- Supabase Flutter — storage and RLS-protected tables
+- Socket.IO Client — real-time chat and notifications
+- shared_preferences — JWT and favourites persistence
+- Firebase Hosting
+
+### Backend
+- Node.js / Express 5
+- Prisma ORM — PostgreSQL via Supabase connection pooler
+- Socket.IO — real-time chat and notification events
+- JWT (30-day) + bcrypt — authentication and password hashing
+- Multer — file upload handling
+- Jest + fast-check — property-based and integration testing
+- Railway
+
+### Database / Storage
+- PostgreSQL on Supabase
+- Supabase Storage — product images and avatars
+- Supabase RLS — row-level security policies
+
+---
+
+## Architecture
 
 ```
-CN333-UniMart/
-├── backend/                    # Node.js API Server
-│   ├── server.js               # Express + Socket.IO entry point
-│   ├── controllers/            # Request handlers
-│   │   ├── auth.controller.js
-│   │   ├── chat.controller.js
-│   │   ├── filter.controller.js
-│   │   ├── notification.controller.js
-│   │   ├── product.controller.js
-│   │   ├── review.controller.js
-│   │   └── transaction.controller.js
-│   ├── services/               # Business logic
-│   │   ├── auth.service.js
-│   │   ├── chat.service.js
-│   │   ├── filter.service.js
-│   │   ├── notification.service.js
-│   │   ├── product.service.js
-│   │   ├── review.service.js
-│   │   └── transaction.service.js
-│   ├── routes/                 # API route definitions
-│   ├── models/                 # Prisma client & Supabase init
-│   ├── prisma/                 # Schema & seed data
-│   │   ├── schema.prisma
-│   │   └── seed.js
-│   ├── tests/                  # Jest + Property-based tests
-│   └── uploads/                # Uploaded images storage
-│
-├── frontend/                   # Flutter Mobile/Web App
-│   ├── lib/
-│   │   ├── main.dart           # App entry point & routing
-│   │   ├── config.dart         # API base URL configuration
-│   │   ├── models/             # Data models (Product, Category, etc.)
-│   │   ├── screens/            # UI screens (19 screens)
-│   │   ├── pages/              # Home page, Favourite manager
-│   │   └── services/           # API, Auth, Chat, Review services
-│   ├── assets/
-│   │   ├── fonts/              # NotoSansThai font
-│   │   └── images/             # App images
-│   └── pubspec.yaml
-│
-└── README.md
+Flutter → REST API (Express) → Prisma → PostgreSQL (Supabase)
+Flutter ↔ Socket.IO (Express) — chat and notifications
+Flutter → Supabase SDK (direct) — RLS-protected tables
 ```
 
----
+Two separate apps in one repository:
 
-## 📊 Database Schema
-
-### `users`
-ข้อมูลผู้ใช้จากระบบ TU + ข้อมูลเพิ่มเติมของ UniMart
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Primary Key |
-| `username` | String | รหัสนักศึกษา (unique) |
-| `display_name_th` | String? | ชื่อ-นามสกุล (ภาษาไทย) |
-| `display_name_en` | String? | ชื่อ-นามสกุล (English) |
-| `faculty` | String? | คณะ |
-| `department` | String? | ภาควิชา |
-| `tu_status` | String? | สถานะนักศึกษา (ปกติ/ลาพัก ฯลฯ) |
-| `avatar` | String? | รูปโปรไฟล์ (filename) |
-| `password_hash` | String? | รหัสผ่าน UniMart (bcrypt) |
-| `dormitory_zone` | String? | โซนหอพัก |
-
-### `Product`
-สินค้าที่ลงขาย/ให้เช่า
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | Int | Primary Key |
-| `title` | String | ชื่อสินค้า |
-| `description` | String | รายละเอียด |
-| `price` | Int | ราคาขาย (บาท) |
-| `images` | String[] | รูปสินค้า (สูงสุด 5 รูป) |
-| `condition` | String | สภาพ (มือหนึ่ง/มือสอง) |
-| `type` | String | ประเภท (SALE/RENT) |
-| `rentPrice` | Int? | ราคาเช่า/วัน |
-| `quantity` | Int | จำนวนคงเหลือ (default: 1) |
-| `status` | String | สถานะ (AVAILABLE/RESERVED/SOLD) |
-| `location` | String | สถานที่ |
-| `ownerId` | UUID | FK → users |
-| `categoryId` | Int? | FK → Category |
-
-### `Transaction`
-ธุรกรรมซื้อ-ขาย/เช่า
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | Int | Primary Key |
-| `buyerId` | UUID | FK → users (ผู้ซื้อ) |
-| `sellerId` | UUID | FK → users (ผู้ขาย) |
-| `productId` | Int | FK → Product |
-| `type` | String | SALE / RENT |
-| `status` | String | PENDING → PROCESSING → SHIPPING → COMPLETED |
-| `price` | Int | ราคาที่ตกลง |
-
-### `Review`
-รีวิวหลังทำธุรกรรม
-
-### `Category`
-9 หมวดหมู่สินค้า
-
-### `MeetingPoint`
-จุดนัดพบในมหาวิทยาลัย
+| Directory | Description |
+|-----------|-------------|
+| `backend/` | Node.js/Express REST API + Socket.IO, port 3000 |
+| `frontend/` | Flutter cross-platform app (Android, iOS, Web, Desktop) |
 
 ---
 
-## 🌐 API Endpoints
+## Getting Started
 
-### Authentication — `/api/auth`
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/verify` | ยืนยันตัวตน TU API |
-| `POST` | `/register` | ลงทะเบียน |
-| `POST` | `/login` | เข้าสู่ระบบ |
-| `POST` | `/change-password` | เปลี่ยนรหัสผ่าน |
-| `POST` | `/:userId/avatar` | อัปโหลดรูปโปรไฟล์ |
-| `GET` | `/:userId/profile` | ดูโปรไฟล์ผู้ใช้ |
-
-### Products — `/api`
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/categories` | ดึงหมวดหมู่ทั้งหมด |
-| `GET` | `/products` | ดึงสินค้าทั้งหมด |
-| `GET` | `/products/:id` | ดึงสินค้าตาม ID |
-| `POST` | `/products` | สร้างสินค้า (multipart) |
-| `PATCH` | `/products/:id` | แก้ไขสินค้า |
-| `DELETE` | `/products/:id` | ลบสินค้า |
-| `GET` | `/products/filter` | กรองสินค้า |
-
-### Chat — `/api/chat`
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/rooms` | สร้างห้องแชท |
-| `GET` | `/rooms/:userId` | ดึงห้องแชท |
-| `POST` | `/messages` | ส่งข้อความ |
-| `GET` | `/rooms/:roomId/messages` | ดึงข้อความ |
-
-### Transactions — `/api/transactions`
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/` | สร้างธุรกรรม |
-| `PATCH` | `/:id/confirm` | ผู้ขายยืนยัน |
-| `PATCH` | `/:id/ship` | จัดส่ง |
-| `PATCH` | `/:id/complete` | เสร็จสิ้น |
-| `PATCH` | `/:id/cancel` | ยกเลิก |
-| `GET` | `/user/:userId` | ดึงธุรกรรมผู้ใช้ |
-
-### Reviews — `/api/reviews`
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/` | สร้างรีวิว |
-| `GET` | `/user/:userId` | ดึงรีวิว |
-| `GET` | `/credit/:userId` | ดึง Credit Score |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- **Node.js** ≥ 18
-- **Flutter SDK** ≥ 3.8.1
-- **PostgreSQL** (Supabase recommended)
-- **TU API Key** (สำหรับยืนยันตัวตนนักศึกษา)
-
-### Backend Setup
-
+### Backend
 ```bash
 cd backend
-
-# Install dependencies
 npm install
-
-# Configure environment variables
-cp .env.example .env
-# แก้ไข .env ตามค่าจริง
-
-# Setup database
 npx prisma generate
 npx prisma db push
-
-# Seed data (categories, meeting points)
-npx prisma db seed
-
-# Start server
 node server.js
 ```
 
-### Environment Variables (Backend `.env`)
-
-```env
-DATABASE_URL=postgresql://...         # Prisma connection string (pooled)
-DIRECT_URL=postgresql://...           # Direct connection (for migrations)
-SUPABASE_URL=https://xxx.supabase.co  # Supabase project URL
-SUPABASE_KEY=eyJ...                   # Supabase anon/service key
-JWT_SECRET=your-secret-key            # JWT signing secret
-TU_API_KEY=your-tu-api-key            # TU RESTful API key
-PORT=3000                             # Server port (default: 3000)
-```
-
-### Frontend Setup
-
+### Frontend
 ```bash
 cd frontend
-
-# Configure environment variables
-cp .env.example .env
-# แก้ไข SUPABASE_URL และ SUPABASE_ANON_KEY
-
-# Install dependencies
 flutter pub get
-
-# Run on device/emulator
-flutter run
+flutter run -d chrome
 ```
 
-### Environment Variables (Frontend `.env`)
+### Environment Variables
 
-```env
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_ANON_KEY=eyJ...
+**backend/.env**
+```
+SUPABASE_URL=
+SUPABASE_KEY=
+DATABASE_URL=
+DIRECT_URL=
+TU_API_KEY=
+```
+
+**frontend/.env**
+```
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
 ```
 
 ---
 
-## 🧪 Testing
+## Security
 
-Backend tests ใช้ **Jest** + **fast-check** (Property-based testing) + **Supertest**
+| Layer | Implementation |
+|-------|---------------|
+| Student verification | TU RESTful API — real TU accounts only |
+| Authentication | JWT (30-day) + bcrypt password hashing |
+| Database access | Supabase RLS — anon role restricted to public data only |
+| Key management | Publishable key for frontend, secret key for backend only |
+| Build-time secrets | `--dart-define` — keys injected at build time, not in source |
+| Secret storage | `.env` gitignored, secrets stored in Railway and Firebase env vars |
+| Transport | HTTPS enforced on both Firebase Hosting and Railway |
+
+---
+
+## Testing
 
 ```bash
 cd backend
-
-# Run all tests
 npm test
-
-# Run specific test
-npx jest tests/auth.property.test.js --forceExit
-npx jest tests/transaction.property.test.js --forceExit
 ```
 
-### Test Coverage
-| Module | Tests |
-|---|---|
-| Auth | `auth.property.test.js` |
-| Chat | `chat.property.test.js`, `chat.rooms.test.js`, `chat.messages.*.test.js`, `chat.reports.test.js` |
-| Transaction | `transaction.property.test.js`, `transactions.create.test.js`, `transactions.state.test.js` |
-| Review | `review.property.test.js`, `reviews.test.js` |
-| Filter | `filter.property.test.js`, `homepage.filter.property.test.js`, `smart-filter.test.js` |
-| Notification | `notification.property.test.js`, `notification.failure.property.test.js`, `notifications.test.js` |
-| Favourites | `favourite.toggle.property.test.js` |
-| Seed | `seed.property.test.js` |
+20 test files covering auth, chat, transactions, reviews, filters, and notifications — including property-based tests with fast-check and integration tests with supertest.
 
 ---
 
-## 👥 Team
+## Deployment
 
-| Name | Student ID | Role |
-|---|---|---|
-| | | |
+| Service | Platform |
+|---------|----------|
+| Backend API | Railway — auto-deploy on push |
+| Frontend Web | Firebase Hosting — manual build and deploy |
 
-> **Course:** CN333 Mobile & Web Application Development  
-> **University:** Thammasat University  
-> **Semester:** 2/2568
+**Frontend build command:**
+```bash
+flutter build web \
+  --dart-define=SUPABASE_URL=your_url \
+  --dart-define=SUPABASE_ANON_KEY=your_publishable_key
+firebase deploy
+```
 
 ---
 
-## 📝 License
-
-This project is developed for educational purposes as part of CN333 coursework at Thammasat University.
+<div align="center">
+CN333 · Thammasat University · 2026
+</div>
