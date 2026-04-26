@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    final result = await AuthService.login(username, password);
+    final result = await AuthService.login(username, password, rememberMe: _rememberMe);
     if (!mounted) return;
     setState(() => _isLoading = false);
 

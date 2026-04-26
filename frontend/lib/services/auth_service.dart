@@ -57,8 +57,9 @@ class AuthService {
   /// POST /api/auth/login
   static Future<Map<String, dynamic>> login(
     String username,
-    String password,
-  ) async {
+    String password, {
+    bool rememberMe = true,
+  }) async {
     final url = Uri.parse('$baseUrl/auth/login');
 
     try {
@@ -70,8 +71,7 @@ class AuthService {
 
       final data = jsonDecode(response.body);
 
-      // จัดเก็บ JWT token เมื่อ login สำเร็จ
-      if (data['success'] == true && data['token'] != null) {
+      if (data['success'] == true && data['token'] != null && rememberMe) {
         await saveToken(data['token']);
         if (data['user'] != null) {
           await saveUser(data['user']);
