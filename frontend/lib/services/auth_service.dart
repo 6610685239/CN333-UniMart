@@ -130,29 +130,4 @@ class AuthService {
     await removeToken();
   }
 
-  /// เปลี่ยนรหัสผ่าน UniMart
-  /// POST /api/auth/change-password
-  static Future<Map<String, dynamic>> changePassword(
-    String userId,
-    String currentPassword,
-    String newPassword,
-  ) async {
-    final url = Uri.parse('$baseUrl/auth/change-password');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userId': userId,
-          'currentPassword': currentPassword,
-          'newPassword': newPassword,
-        }),
-      );
-
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {'success': false, 'message': 'เชื่อมต่อ Server ไม่ได้: $e'};
-    }
-  }
 }

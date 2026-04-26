@@ -16,7 +16,6 @@ const upload = multer({
 router.post('/verify', authController.verify);
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-router.post('/change-password', authController.changePassword);
 router.post('/:userId/avatar', upload.single('avatar'), authController.uploadAvatar);
 router.get('/:userId/profile', authController.getUserProfile);
 router.patch('/:userId/profile', authController.updateUserProfile);
