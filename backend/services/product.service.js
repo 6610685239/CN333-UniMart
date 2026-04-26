@@ -127,9 +127,13 @@ async function getProductById(id) {
 }
 
 async function deleteProduct(id) {
-  return prisma.product.delete({
-    where: { id: parseInt(id) },
+  const productId = parseInt(id);
+  // Delete related records first to avoid foreign key constraint errors
+  await prisma.review.deleteMany({
+    where: { transaction: { productId } },
   });
+  await prisma.transaction.deleteMany({ where: { productId } });
+  return prisma.product.delete({ where: { id: productId } });
 }
 
 async function updateProduct(id, body) {
