@@ -89,13 +89,27 @@ async function createProduct(body, files) {
   return prisma.product.create({ data: productData });
 }
 
+const safeOwnerSelect = {
+  select: {
+    id: true,
+    display_name_th: true,
+    display_name_en: true,
+    username: true,
+    faculty: true,
+    department: true,
+    tu_status: true,
+    avatar: true,
+    dormitory_zone: true,
+  }
+};
+
 async function getMyProducts(userId) {
   const products = await prisma.product.findMany({
     where: { ownerId: userId },
     orderBy: { createdAt: 'desc' },
     include: {
       category: true,
-      owner: true
+      owner: safeOwnerSelect
     }
   });
 
@@ -107,7 +121,7 @@ async function getProductById(id) {
     where: { id: parseInt(id) },
     include: {
       category: true,
-      owner: true
+      owner: safeOwnerSelect
     },
   });
 
