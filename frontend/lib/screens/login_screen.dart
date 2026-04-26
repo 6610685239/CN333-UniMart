@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    final result = await AuthService.login(username, password);
+    final result = await AuthService.login(username, password, rememberMe: _rememberMe);
     if (!mounted) return;
     setState(() => _isLoading = false);
 
@@ -471,16 +471,30 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Container(
               height: 52,
               decoration: BoxDecoration(
-                color: _isLoading ? AppColors.textHint : AppColors.ink,
+                color: AppColors.ink,
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child: _isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2.5),
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Connecting...',
+                          style: _jak(
+                            size: 14,
+                            weight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     )
                   : Text(
                       'Log in',

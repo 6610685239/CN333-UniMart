@@ -24,22 +24,27 @@ void main() async {
     String supabaseAnonKey;
 
     if (kIsWeb) {
-      // On web the asset bundle path resolution for dotenv is unreliable —
-      // use the values directly since they are visible in the JS bundle anyway.
-      supabaseUrl = 'https://ztebnnqowoemjlnzqsad.supabase.co';
-      supabaseAnonKey =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0ZWJubnFvd29lbWpsbnpxc2FkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTE0NzM3OSwiZXhwIjoyMDg2NzIzMzc5fQ.OW0w1NzYeiVrNSejwYI6i-Y4ygZiVI64dwmF_NgpW3I';
+      // Keys are injected at build time via --dart-define (not stored in source).
+      // Railway build command: flutter build web
+      //   --dart-define=SUPABASE_URL=https://...
+      //   --dart-define=SUPABASE_ANON_KEY=eyJ...
+      supabaseUrl = const String.fromEnvironment('SUPABASE_URL');
+      supabaseAnonKey = const String.fromEnvironment('SUPABASE_ANON_KEY');
     } else {
       await dotenv.load(fileName: '.env');
       supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
       supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+    }
 
-      if (supabaseUrl.isEmpty) {
-        throw Exception('Missing SUPABASE_URL in frontend/.env');
-      }
-      if (supabaseAnonKey.isEmpty) {
-        throw Exception('Missing SUPABASE_ANON_KEY in frontend/.env');
-      }
+    if (supabaseUrl.isEmpty) {
+      throw Exception(kIsWeb
+          ? 'Missing --dart-define=SUPABASE_URL in build command'
+          : 'Missing SUPABASE_URL in frontend/.env');
+    }
+    if (supabaseAnonKey.isEmpty) {
+      throw Exception(kIsWeb
+          ? 'Missing --dart-define=SUPABASE_ANON_KEY in build command'
+          : 'Missing SUPABASE_ANON_KEY in frontend/.env');
     }
 
     await Supabase.initialize(

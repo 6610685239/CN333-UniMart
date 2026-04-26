@@ -113,34 +113,6 @@ async function login(req, res) {
   }
 }
 
-async function changePassword(req, res) {
-  const { userId, currentPassword, newPassword } = req.body;
-
-  if (!userId || !currentPassword || !newPassword) {
-    return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลให้ครบ' });
-  }
-
-  if (newPassword.length < 6) {
-    return res.status(400).json({ success: false, message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร' });
-  }
-
-  try {
-    const result = await authService.changePassword(userId, currentPassword, newPassword);
-
-    if (result.error === 'NOT_FOUND') {
-      return res.status(404).json({ success: false, message: 'ไม่พบบัญชีผู้ใช้' });
-    }
-    if (result.error === 'WRONG_PASSWORD') {
-      return res.status(401).json({ success: false, message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
-    }
-
-    res.json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
-  } catch (err) {
-    console.error('Change Password Error:', err.message);
-    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: err.message });
-  }
-}
-
 async function uploadAvatar(req, res) {
   const { userId } = req.params;
 
@@ -231,4 +203,4 @@ async function updateUserProfile(req, res) {
   }
 }
 
-module.exports = { verify, register, login, changePassword, uploadAvatar, getUserProfile, updateUserProfile };
+module.exports = { verify, register, login, uploadAvatar, getUserProfile, updateUserProfile };

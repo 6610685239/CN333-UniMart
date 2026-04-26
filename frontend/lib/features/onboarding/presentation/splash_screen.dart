@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../services/auth_service.dart';
+import '../../../screens/main_screen.dart';
 import '../widgets/page_dots.dart';
 import 'onboarding_screen.dart';
 
@@ -62,15 +64,25 @@ class _SplashScreenState extends State<SplashScreen>
       _pulse.repeat(reverse: true);
     }
 
-    _timer = Timer(const Duration(milliseconds: 1500), () {
+    _timer = Timer(const Duration(milliseconds: 1500), () async {
       if (!mounted) return;
-      // TODO Step 5: replace with context.go('/onboarding')
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const OnboardingScreen(),
-          transitionDuration: Duration.zero,
-        ),
-      );
+      final user = await AuthService.getUser();
+      if (!mounted) return;
+      if (user != null) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => MainScreen(user: user),
+            transitionDuration: Duration.zero,
+          ),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const OnboardingScreen(),
+            transitionDuration: Duration.zero,
+          ),
+        );
+      }
     });
   }
 

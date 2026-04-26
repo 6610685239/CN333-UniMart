@@ -610,10 +610,10 @@ class _SellerProfileScreenState extends State<SellerProfileScreen>
   // ── Product card (trending style) ──────────────────────────────────────────
 
   Widget _productCard(Product product) {
-    final priceText = (product.price == 0 && product.type == 'RENT')
-        ? '฿0'
-        : (product.type == 'RENT' && product.rentPrice > 0)
-            ? 'เช่า ฿${_formatPrice(product.rentPrice)}'
+    final priceText = (product.type == 'RENT' && product.rentPrice > 0)
+        ? 'เช่า ฿${_formatPrice(product.rentPrice)}'
+        : (product.type == 'RENT' && product.price > 0)
+            ? 'เช่า ฿${_formatPrice(product.price)}'
             : '฿${_formatPrice(product.price)}';
 
     return GestureDetector(
