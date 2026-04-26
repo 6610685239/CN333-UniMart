@@ -94,12 +94,7 @@ const safeOwnerSelect = {
     id: true,
     display_name_th: true,
     display_name_en: true,
-    username: true,
-    faculty: true,
-    department: true,
-    tu_status: true,
     avatar: true,
-    dormitory_zone: true,
   }
 };
 
