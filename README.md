@@ -84,3 +84,44 @@ The platform utilizes a modern decoupled architecture to ensure scalability and 
 | **Storage** | Supabase | S3-Compatible Media Storage |
 
 ---
+
+## Project Members
+
+<table>
+  <thead>
+    <tr>
+      <th align="center">Student ID</th>
+      <th align="left">Name</th>
+      <th align="left">Role & Responsibility</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center"><b>6610685056</b></td>
+      <td>Chonchanan Jitrawang</td>
+      <td>Full-stack</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685098</b></td>
+      <td>Kittidet Wichaidit</td>
+      <td>Backend Developer</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685122</b></td>
+      <td>Chayawat Kanjanakaew</td>
+      <td>System Analyst & QA Tester</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685205</b></td>
+      <td>Nonthapat Boonprasith</td>
+      <td>UX/UI & Frontend Developer</td>
+    </tr>
+    <tr>
+      <td align="center"><b>6610685239</b></td>
+      <td>Parunchai Timklip</td>
+      <td>DevOps & Database</td>
+    </tr>
+  </tbody>
+</table>
+
+---
