@@ -161,7 +161,7 @@ async function getAllProducts(ownerId) {
 
   const products = await prisma.product.findMany({
     where: ownerId ? { ownerId: ownerId } : undefined,
-    include: { owner: true, category: true },
+    include: { owner: safeOwnerSelect, category: true },
     orderBy: { createdAt: 'desc' }
   });
 
