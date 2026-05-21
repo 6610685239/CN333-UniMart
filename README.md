@@ -14,6 +14,7 @@ Buy, sell, and rent items within your campus — powered by **verified TU accoun
 ![Frontend](https://img.shields.io/badge/Frontend-Flutter-blue?style=flat-square)
 ![Database](https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Active_Development-8B0000?style=flat-square)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-cn333--unimart-3ECF8E?style=flat-square&logo=firebase)](https://cn333-unimart-26abc.web.app/)
 
 </div>
 
@@ -79,7 +80,7 @@ The platform utilizes a modern decoupled architecture to ensure scalability and 
 | Service | Platform | Purpose |
 | :--- | :--- | :--- |
 | **Backend API** | Railway | Node.js / Express Environment |
-| **Frontend Web** | Firebase Hosting | Production Web Delivery |
+| **Frontend Web** | [Firebase Hosting](https://cn333-unimart-26abc.web.app/) | Production Web Delivery |
 | **Database** | Supabase | Managed PostgreSQL & Auth |
 | **Storage** | Supabase | S3-Compatible Media Storage |
 
