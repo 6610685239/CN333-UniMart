@@ -14,6 +14,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY . .
 RUN rm -rf tests/
+RUN mkdir -p uploads && chown -R nodejs:nodejs /app
 USER nodejs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3000/health || exit 1
