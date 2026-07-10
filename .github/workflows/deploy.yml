@@ -87,11 +87,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TU_API_KEY: ${{ secrets.TU_API_KEY }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DATABASE_URL,DIRECT_URL,SUPABASE_URL,SUPABASE_KEY,JWT_SECRET
+          envs: DATABASE_URL,DIRECT_URL,SUPABASE_URL,SUPABASE_KEY,JWT_SECRET,TU_API_KEY
           script: |
             cd /opt/unimart
             cat > .env.production << ENV
@@ -100,6 +101,7 @@ jobs:
             SUPABASE_URL=$SUPABASE_URL
             SUPABASE_KEY=$SUPABASE_KEY
             JWT_SECRET=$JWT_SECRET
+            TU_API_KEY=$TU_API_KEY
             ENV
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
