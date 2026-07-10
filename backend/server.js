@@ -35,6 +35,11 @@ app.use(cors({
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
+// Health check endpoint for Docker & load balancer monitoring
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // ตรวจสอบว่ามีโฟลเดอร์ uploads ไหม ถ้าไม่มีให้สร้าง
 if (!fs.existsSync('./uploads')) {
   fs.mkdirSync('./uploads');

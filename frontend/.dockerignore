@@ -1,0 +1,10 @@
+.git
+.dart_tool
+.idea
+build
+.packages
+.pub-cache
+.pub
+*.md
+.firebase
+.firebaserc
