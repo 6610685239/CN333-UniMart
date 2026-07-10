@@ -70,6 +70,9 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/unimart-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
 
   deploy:
     name: Deploy to EC2
