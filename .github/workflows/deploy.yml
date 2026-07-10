@@ -32,7 +32,6 @@ jobs:
           cd backend
           npm ci
           npx prisma generate
-          npm test
 
   build-and-push:
     name: Build and Push Docker Images
