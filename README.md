@@ -14,7 +14,7 @@ Buy, sell, and rent items within your campus — powered by **verified TU accoun
 ![Frontend](https://img.shields.io/badge/Frontend-Flutter-blue?style=flat-square)
 ![Database](https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Active_Development-8B0000?style=flat-square)
-[![Live Demo](https://img.shields.io/badge/Live_Demo-cn333--unimart-3ECF8E?style=flat-square&logo=firebase)](https://cn333-unimart-26abc.web.app/)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-54.254.88.0-FF9900?style=flat-square&logo=amazonaws)](http://54.254.88.0)
 
 </div>
 
@@ -38,8 +38,9 @@ Buy, sell, and rent items within your campus — powered by **verified TU accoun
 
 | Real-time & Auth | Storage | Deployment |
 | :---: | :---: | :---: |
-| ![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white) | ![Supabase Storage](https://img.shields.io/badge/Supabase_Storage-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white) | ![Railway](https://img.shields.io/badge/Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white) |
-| ![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white) | ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white) | ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black) |
+| ![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white) | ![Supabase Storage](https://img.shields.io/badge/Supabase_Storage-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white) | ![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white) |
+| ![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white) | ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white) | ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) |
+| ![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white) | ![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white) | ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white) |
 
 </div>
 
@@ -79,10 +80,12 @@ The platform utilizes a modern decoupled architecture to ensure scalability and 
 
 | Service | Platform | Purpose |
 | :--- | :--- | :--- |
-| **Backend API** | Railway | Node.js / Express Environment |
-| **Frontend Web** | [Firebase Hosting](https://cn333-unimart-26abc.web.app/) | Production Web Delivery |
+| **Frontend & Backend** | AWS EC2 (Docker) | Containerized production environment |
+| **Reverse Proxy** | Nginx | Routes traffic & handles rate-limiting |
 | **Database** | Supabase | Managed PostgreSQL & Auth |
 | **Storage** | Supabase | S3-Compatible Media Storage |
+| **CI/CD** | GitHub Actions | Automated build, test, and deploy |
+| **Infrastructure** | Terraform | Infrastructure-as-Code provisioning |
 
 ---
 
