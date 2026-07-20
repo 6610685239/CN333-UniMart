@@ -118,7 +118,7 @@ The platform utilizes a modern decoupled architecture to ensure scalability and 
     <tr>
       <td align="center"><b>6610685205</b></td>
       <td>Nonthapat Boonprasith</td>
-      <td>UX/UI & Frontend Developer</td>
+      <td>DevOps & Frontend Developer</td>
     </tr>
     <tr>
       <td align="center"><b>6610685239</b></td>
